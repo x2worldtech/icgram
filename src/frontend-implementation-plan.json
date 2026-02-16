@@ -1,0 +1,98 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Optimistic loading across app via React Query cache-first mutations with rollback",
+  "requirements": [
+    {
+      "id": "REQ-6",
+      "summary": "Move optimistic UI behavior into React Query mutation hooks (cache-first updates + rollback) with targeted invalidation only when required",
+      "acceptanceCriteria": [
+        "For each of these actions—post like/unlike, comment add, comment like/unlike, follow/unfollow, post create/delete, profile save—the UI updates immediately without waiting for the backend response.",
+        "If a mutation fails, the UI state is reverted to the previous value (no permanent ‘stuck’ optimistic state).",
+        "Mutations do not broadly invalidate unrelated queries; invalidation is targeted (e.g., only the affected query keys) and only used when an optimistic cache update is insufficient.",
+        "The app still reaches eventual consistency with backend data after mutations complete."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Refactor key mutations to implement consistent optimistic updates using React Query mutation lifecycle: add onMutate to synchronously update relevant cached query data (e.g., ['feed'], ['userPosts', principal], ['comments', postId], ['currentUserProfile'], ['userProfile', principalId], and optionally ['post', postId]); capture and return snapshot context; add onError rollback restoring snapshot; add onSettled/onSuccess to perform minimal targeted invalidation/refetch only for eventual consistency where cache updates cannot be made fully authoritative (e.g., inbox/aggregate counts)."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Standardize mutation inputs so hooks have enough information to optimistically update cache (e.g., include current user principal for like/unlike/follow state, include postId for comment ops, include author principal and optimistic temp IDs for post create). Ensure optimistic cache updates are applied consistently across all entry points."
+        }
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "summary": "Update UI components to rely on unified optimistic React Query cache state instead of per-component local optimistic state across all entry points",
+      "acceptanceCriteria": [
+        "Liking a post from `PostCard` and from `PostDetailModal` shows the same immediate like/like-count changes and the same rollback behavior on error.",
+        "Comment like/unlike shows immediate count/icon updates in both `CommentsModal` and `PostDetailModal` comment lists, with rollback on error.",
+        "Adding a comment shows the new comment immediately in the list (optimistically) and removes it or marks it failed if the backend request fails.",
+        "Follow/unfollow updates follower/following state immediately on profile pages and reverts on error."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/PostCard.tsx",
+          "operation": "modify",
+          "description": "Remove per-component optimistic like state (local optimisticLiked/optimisticLikeCount) and rely exclusively on React Query cached post state for liked/like-count rendering. Wire like/unlike interactions to the unified optimistic mutation hooks so the feed card reflects immediate cache updates and rollback automatically."
+        },
+        {
+          "path": "frontend/src/components/PostDetailModal.tsx",
+          "operation": "modify",
+          "description": "Refactor modal to render from React Query cached post state (rather than a static Post prop) so optimistic updates from anywhere (feed card, profile grid, inbox) are reflected immediately. Update like/unlike, add comment, comment like/unlike, and delete flows to rely on unified optimistic mutation hooks and cached state for immediate UI + rollback behavior."
+        },
+        {
+          "path": "frontend/src/components/CommentsModal.tsx",
+          "operation": "modify",
+          "description": "Ensure comments list rendering and like counts rely on the React Query ['comments', postId] cache state; remove/avoid any per-item local optimistic state. Use unified optimistic add-comment and like/unlike-comment mutation hooks so both CommentsModal and PostDetailModal show identical immediate updates and rollback behavior."
+        },
+        {
+          "path": "frontend/src/pages/ProfilePage.tsx",
+          "operation": "modify",
+          "description": "Update post detail opening logic to pass a post identifier (or otherwise ensure PostDetailModal renders from cached query state) so optimistic like/comment/delete changes are consistent and visible when opening from the profile posts grid."
+        },
+        {
+          "path": "frontend/src/pages/CreatorProfilePage.tsx",
+          "operation": "modify",
+          "description": "Ensure follow/unfollow button and counts rely on the optimistic cache-updated profiles (['currentUserProfile'] and ['userProfile', principalId]) and that PostDetailModal usage renders from cached post state for consistent optimistic behavior when opened from the creator profile grid."
+        },
+        {
+          "path": "frontend/src/pages/InboxPage.tsx",
+          "operation": "modify",
+          "description": "Update PostDetailModal usage (if passing a Post object today) to pass a post identifier / render from cached query state so optimistic likes/comments/deletes behave identically when opening the same post from inbox activity."
+        }
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "summary": "Make post create/delete feel instant by optimistically updating feed and user posts caches (['feed'] and ['userPosts', principal]) with rollback",
+      "acceptanceCriteria": [
+        "After creating a post, the new post appears immediately in the feed and in the author’s profile posts list (optimistically).",
+        "After deleting a post, the post disappears immediately from the feed and from the author’s profile posts list (optimistically).",
+        "If create/delete fails, the feed/profile lists revert to the prior state.",
+        "No full-page loading spinners are required to see the updated feed/profile after these actions; the perceived latency is minimized."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Implement optimistic create/delete post behavior: onMutate for create inserts an optimistic post into ['feed'] and ['userPosts', authorPrincipal] (using a temporary id and the provided image/caption/author/timestamp), and onSuccess reconciles the temporary id with the returned real id; onError rolls back prior cached lists. For delete, onMutate removes the post from ['feed'], ['userPosts', authorPrincipal], and any cached ['post', postId]; onError restores snapshots. Keep invalidation narrowly scoped (e.g., only ['inbox'] or aggregates like ['totalLikes', principal] if needed for eventual consistency)."
+        },
+        {
+          "path": "frontend/src/pages/CreatePostPage.tsx",
+          "operation": "modify",
+          "description": "Pass the current authenticated principal into the create-post mutation variables (so the hook can optimistically update ['userPosts', principal] as well as ['feed']). Keep the perceived latency minimized by relying on the optimistic cache insertion rather than waiting for feed refetch to reflect the new post after navigation."
+        },
+        {
+          "path": "frontend/src/pages/ProfilePage.tsx",
+          "operation": "modify",
+          "description": "Ensure profile posts grid reflects optimistic create/delete changes from the ['userPosts', principal] cache immediately (no manual full refetch logic), and that the selected post detail rendering stays in sync with cache after optimistic create/delete completes or rolls back."
+        }
+      ]
+    }
+  ]
+}

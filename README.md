@@ -1,2 +1,3 @@
-# icgram
-Exported from Caffeine project: Add browser caching and performance optimizations for user-uploaded images
+## 
+
+To run app build and run docker image: `docker build -t app . docker run -it --network host app`

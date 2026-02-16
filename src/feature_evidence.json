@@ -1,0 +1,71 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-implement-consistent-optimistic-ui-updates-optimistic-loading-for-all-key-mutations-by-moving-optimistic-behavior-into-react-query-mutation-hooks-in-frontend-src-hooks-usequeries-ts-using-onmutate-optimistic-cache-update-onerror-rollback-and-minimal-targeted-invalidation-refetch-only-when-required-for-eventual-consistency",
+      "featureTitle": "Implement consistent optimistic UI updates (optimistic loading) for all key mutations by moving optimistic behavior into React Query mutation hooks in `frontend/src/hooks/useQueries.ts` using `onMutate` (optimistic cache update), `onError` (rollback), and minimal targeted invalidation/refetch only when required for eventual consistency.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts"
+      ],
+      "components": [
+        "authorization@1.0.1",
+        "blob-storage@2.0.3",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-6"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-ui-components-to-rely-on-the-unified-optimistic-react-query-cache-state-rather-than-per-component-local-optimistic-state-where-applicable-ensuring-identical-optimistic-behavior-in-all-entry-points-e-g-liking-from-feed-card-vs-post-detail-modal-liking-comments-from-comments-modal-vs-post-detail-modal",
+      "featureTitle": "Update UI components to rely on the unified optimistic React Query cache state rather than per-component local optimistic state where applicable, ensuring identical optimistic behavior in all entry points (e.g., liking from feed card vs. post detail modal; liking comments from comments modal vs. post detail modal).",
+      "files": [
+        "frontend/src/components/CommentsModal.tsx",
+        "frontend/src/components/PostCard.tsx",
+        "frontend/src/components/PostDetailModal.tsx",
+        "frontend/src/pages/CreatorProfilePage.tsx",
+        "frontend/src/pages/ProfilePage.tsx"
+      ],
+      "components": [
+        "authorization@1.0.1",
+        "blob-storage@2.0.3",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-7"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-make-post-create-delete-feel-instant-by-applying-optimistic-cache-updates-to-the-feed-feed-and-user-posts-userposts-principal-lists-so-navigation-back-to-feed-profile-does-not-require-a-full-refetch-to-reflect-the-change",
+      "featureTitle": "Make post create/delete feel instant by applying optimistic cache updates to the feed (`['feed']`) and user posts (`['userPosts', principal]`) lists so navigation back to feed/profile does not require a full refetch to reflect the change.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/CreatePostPage.tsx",
+        "frontend/src/pages/ProfilePage.tsx"
+      ],
+      "components": [
+        "authorization@1.0.1",
+        "blob-storage@2.0.3",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-8"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

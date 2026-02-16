@@ -1,0 +1,87 @@
+{
+  "kind": "build_request",
+  "title": "Implement optimistic loading across the app (React Query cache-first mutations + rollback)",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-6",
+      "text": "Implement consistent optimistic UI updates (optimistic loading) for all key mutations by moving optimistic behavior into React Query mutation hooks in `frontend/src/hooks/useQueries.ts` using `onMutate` (optimistic cache update), `onError` (rollback), and minimal targeted invalidation/refetch only when required for eventual consistency.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "Kannst du optimistic loading für die ganze app einbauen , das alles schneller lädt"
+        ]
+      },
+      "acceptanceCriteria": [
+        "For each of these actions—post like/unlike, comment add, comment like/unlike, follow/unfollow, post create/delete, profile save—the UI updates immediately without waiting for the backend response.",
+        "If a mutation fails, the UI state is reverted to the previous value (no permanent ‘stuck’ optimistic state).",
+        "Mutations do not broadly invalidate unrelated queries; invalidation is targeted (e.g., only the affected query keys) and only used when an optimistic cache update is insufficient.",
+        "The app still reaches eventual consistency with backend data after mutations complete."
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "text": "Update UI components to rely on the unified optimistic React Query cache state rather than per-component local optimistic state where applicable, ensuring identical optimistic behavior in all entry points (e.g., liking from feed card vs. post detail modal; liking comments from comments modal vs. post detail modal).",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "optimistic loading für die ganze app"
+        ]
+      },
+      "acceptanceCriteria": [
+        "Liking a post from `PostCard` and from `PostDetailModal` shows the same immediate like/like-count changes and the same rollback behavior on error.",
+        "Comment like/unlike shows immediate count/icon updates in both `CommentsModal` and `PostDetailModal` comment lists, with rollback on error.",
+        "Adding a comment shows the new comment immediately in the list (optimistically) and removes it or marks it failed if the backend request fails.",
+        "Follow/unfollow updates follower/following state immediately on profile pages and reverts on error."
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "text": "Make post create/delete feel instant by applying optimistic cache updates to the feed (`['feed']`) and user posts (`['userPosts', principal]`) lists so navigation back to feed/profile does not require a full refetch to reflect the change.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-3"
+        ],
+        "quotes": [
+          "das alles schneller lädt"
+        ]
+      },
+      "acceptanceCriteria": [
+        "After creating a post, the new post appears immediately in the feed and in the author’s profile posts list (optimistically).",
+        "After deleting a post, the post disappears immediately from the feed and from the author’s profile posts list (optimistically).",
+        "If create/delete fails, the feed/profile lists revert to the prior state.",
+        "No full-page loading spinners are required to see the updated feed/profile after these actions; the perceived latency is minimized."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not modify files under `frontend/immutablePaths` (e.g., `frontend/src/hooks/useInternetIdentity.ts(x)`, `frontend/src/hooks/useActor.ts`, `frontend/src/main.tsx`, and anything in `frontend/src/components/ui`). Compose or wrap instead.",
+    "Keep backend as a single Motoko actor in `backend/main.mo`; do not introduce additional backend services."
+  ],
+  "nonGoals": [
+    "Adding real-time updates (WebSockets/push) to propagate likes/comments instantly across devices.",
+    "Changing backend data models or adding new backend endpoints unless strictly necessary for optimistic UI correctness.",
+    "Redesigning the visual theme or layout; this request is performance/UX responsiveness focused."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
+  }
+}

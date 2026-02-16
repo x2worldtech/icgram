@@ -1,0 +1,61 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-13T12:54:38.610Z",
+  "summary": "The diff shows components wired to React Query mutations (like/unlike, add comment, follow/unfollow, delete post) and introduces optimistic behavior for at least profile save and post create inside `frontend/src/hooks/useQueries.ts`. However, the provided `useQueries.ts` diff is truncated before showing optimistic implementations for several required mutations (likes, comment likes, follow/unfollow, delete post), so full REQ-6/7/8 coverage cannot be verified from the available evidence.",
+  "missing_requirements": [
+    {
+      "id": "REQ-6",
+      "requirement": "Implement consistent optimistic UI updates for all key mutations (post like/unlike, comment add, comment like/unlike, follow/unfollow, post delete, etc.) by moving optimistic behavior into React Query mutation hooks in `frontend/src/hooks/useQueries.ts` using `onMutate`/`onError` rollback and only targeted invalidation when needed.",
+      "reason": "The diff snippet of `useQueries.ts` only clearly shows `onMutate`/rollback for saving the caller profile and part of optimistic post creation. The required optimistic mutation implementations for post like/unlike, comment add, comment like/unlike, follow/unfollow, and post delete are not visible in the truncated diff, so their presence cannot be confirmed from evidence provided.",
+      "evidence": [
+        "frontend/src/hooks/useQueries.ts (truncated; only `useSaveCallerUserProfile` and start of `useCreatePost` optimistic logic shown)",
+        "frontend/src/components/PostCard.tsx (calls like/unlike mutations but does not show cache update logic)",
+        "frontend/src/components/CommentsModal.tsx (calls addComment/likeComment/unlikeComment mutations but does not show cache update logic)",
+        "frontend/src/pages/CreatorProfilePage.tsx (calls follow/unfollow/delete mutations but does not show cache update logic)"
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "requirement": "Update UI components to rely on unified optimistic React Query cache state rather than per-component local optimistic state, ensuring identical optimistic behavior across entry points (PostCard vs PostDetailModal; CommentsModal vs PostDetailModal; follow/unfollow on profiles).",
+      "reason": "Components still derive `isLiked`/counts from the `post` prop (e.g., `post.likes`) rather than reading a cached post entity keyed by query state; the diff does not show that `post` props are sourced from the same unified cache-updated query results in all entry points. Also, per-component UI-only states (e.g., like animation/success flags) remain, and the diff is truncated so we cannot verify that prior local optimistic state was removed everywhere it should be.",
+      "evidence": [
+        "frontend/src/components/PostCard.tsx (computes `isLiked` from `post.likes` on the passed-in `post` prop)",
+        "frontend/src/components/PostDetailModal.tsx (computes `isLiked` from `post.likes` on the passed-in `post` prop)",
+        "frontend/src/components/CommentsModal.tsx (uses local `showSuccess` and local input state; cache reliance for optimistic comment list cannot be confirmed due to truncation)"
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "requirement": "Make post create/delete feel instant by applying optimistic cache updates to the feed (`['feed']`) and user posts (`['userPosts', principal]`) lists with rollback on error.",
+      "reason": "Optimistic create behavior for `['feed']` and `['userPosts', authorPrincipal]` is visible. However, optimistic delete behavior removing from both lists (and rolling back on error) is not shown in `useQueries.ts` due to truncation; only components calling `useDeletePost()` are shown.",
+      "evidence": [
+        "frontend/src/hooks/useQueries.ts (shows optimistic insertion into `['feed']` and `['userPosts', authorPrincipal.toString()]` for create; delete not visible due to truncation)",
+        "frontend/src/components/PostDetailModal.tsx (invokes `useDeletePost` but no cache update logic shown here)",
+        "frontend/src/pages/ProfilePage.tsx (invokes `useDeletePost` but no cache update logic shown here)"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "Documentation claims broad UI/theme/branding changes (e.g., 'iOS 26-inspired OKLCH color system', new logo/favicon, new Inbox page, MainLayout navigation changes, EditProfileModal upload progress tracking, enhanced image preloading), but these changes are not reflected in the actual modified file list shown in the diff summary.",
+      "reason": "The only evidence for these items is text inside `frontend-file-summaries.txt`, while the actual diff summary lists modifications to only 9 files and does not include `frontend/src/index.css`, `frontend/index.html`, `frontend/src/pages/InboxPage.tsx`, `frontend/src/components/MainLayout.tsx`, or `frontend/src/hooks/useImagePreloader.ts` as modified files.",
+      "evidence": [
+        "frontend-file-summaries.txt (contains claims about many files/features not present in the modified-files list)",
+        "File diff summary modified-files list (only 9 files; does not include the files claimed as changed in `frontend-file-summaries.txt`)"
+      ]
+    }
+  ],
+  "confidence": 0.62,
+  "changed_files": [
+    "frontend-file-summaries.txt",
+    "frontend/src/components/CommentsModal.tsx",
+    "frontend/src/components/PostCard.tsx",
+    "frontend/src/components/PostDetailModal.tsx",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/CreatePostPage.tsx",
+    "frontend/src/pages/CreatorProfilePage.tsx",
+    "frontend/src/pages/ProfilePage.tsx",
+    "project_state.json"
+  ]
+}
