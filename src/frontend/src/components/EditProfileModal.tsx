@@ -1,13 +1,19 @@
-import { useState, useEffect } from 'react';
-import { useSaveCallerUserProfile } from '../hooks/useQueries';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ExternalBlob, UserProfile } from '../backend';
-import { Loader2, Check } from 'lucide-react';
-import { optimizeAvatarImage, validateImage } from '../utils/imageOptimization';
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Check, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ExternalBlob } from "../backend";
+import { useSaveCallerUserProfile } from "../hooks/useQueries";
+import type { UserProfile } from "../types";
+import { optimizeAvatarImage, validateImage } from "../utils/imageOptimization";
 
 interface EditProfileModalProps {
   open: boolean;
@@ -15,15 +21,20 @@ interface EditProfileModalProps {
   currentProfile: UserProfile;
 }
 
-export default function EditProfileModal({ open, onOpenChange, currentProfile }: EditProfileModalProps) {
+export default function EditProfileModal({
+  open,
+  onOpenChange,
+  currentProfile,
+}: EditProfileModalProps) {
   const [username, setUsername] = useState(currentProfile.username);
   const [displayName, setDisplayName] = useState(currentProfile.displayName);
   const [bio, setBio] = useState(currentProfile.bio);
-  const [profilePicture, setProfilePicture] = useState<ExternalBlob | undefined>(
-    currentProfile.profilePicture
-  );
+  const [profilePicture, setProfilePicture] = useState<
+    ExternalBlob | undefined
+  >(currentProfile.profilePicture);
   const [previewUrl, setPreviewUrl] = useState<string>(
-    currentProfile.profilePicture?.getDirectURL() || '/assets/generated/default-avatar.dim_200x200.png'
+    currentProfile.profilePicture?.getDirectURL() ||
+      "/assets/generated/default-avatar.dim_200x200.png",
   );
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -39,7 +50,8 @@ export default function EditProfileModal({ open, onOpenChange, currentProfile }:
       setBio(currentProfile.bio);
       setProfilePicture(currentProfile.profilePicture);
       setPreviewUrl(
-        currentProfile.profilePicture?.getDirectURL() || '/assets/generated/default-avatar.dim_200x200.png'
+        currentProfile.profilePicture?.getDirectURL() ||
+          "/assets/generated/default-avatar.dim_200x200.png",
       );
       setShowSuccess(false);
       setUploadProgress(0);
@@ -62,14 +74,18 @@ export default function EditProfileModal({ open, onOpenChange, currentProfile }:
     try {
       // Optimize image on client side
       const optimized = await optimizeAvatarImage(file);
-      
+
       // Log optimization results for debugging
-      console.log(`Avatar optimized: ${(optimized.originalSize / 1024).toFixed(1)}KB → ${(optimized.optimizedSize / 1024).toFixed(1)}KB (${optimized.compressionRatio.toFixed(1)}% reduction)`);
+      console.log(
+        `Avatar optimized: ${(optimized.originalSize / 1024).toFixed(1)}KB → ${(optimized.optimizedSize / 1024).toFixed(1)}KB (${optimized.compressionRatio.toFixed(1)}% reduction)`,
+      );
 
       const bytes = new Uint8Array(await optimized.file.arrayBuffer());
-      const blob = ExternalBlob.fromBytes(bytes).withUploadProgress((percentage) => {
-        setUploadProgress(percentage);
-      });
+      const blob = ExternalBlob.fromBytes(bytes).withUploadProgress(
+        (percentage) => {
+          setUploadProgress(percentage);
+        },
+      );
       setProfilePicture(blob);
 
       // Create preview from optimized file
@@ -79,7 +95,7 @@ export default function EditProfileModal({ open, onOpenChange, currentProfile }:
       };
       reader.readAsDataURL(optimized.file);
     } catch (error) {
-      console.error('Error optimizing avatar:', error);
+      console.error("Error optimizing avatar:", error);
       setImageError(true);
       setTimeout(() => setImageError(false), 3000);
     } finally {
@@ -110,7 +126,7 @@ export default function EditProfileModal({ open, onOpenChange, currentProfile }:
         onOpenChange(false);
       }, 1500);
     } catch (error) {
-      console.error('Error updating profile:', error);
+      console.error("Error updating profile:", error);
     }
   };
 
@@ -120,18 +136,23 @@ export default function EditProfileModal({ open, onOpenChange, currentProfile }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md rounded-3xl">
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl font-light">Edit Profile</DialogTitle>
+          <DialogTitle className="text-center text-2xl font-light">
+            Edit Profile
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="flex justify-center">
-            <label htmlFor="profile-picture" className={`cursor-pointer ${isOptimizing ? 'opacity-50 pointer-events-none' : ''}`}>
+            <label
+              htmlFor="profile-picture"
+              className={`cursor-pointer ${isOptimizing ? "opacity-50 pointer-events-none" : ""}`}
+            >
               <div className="relative">
                 <img
                   src={previewUrl}
-                  alt="Profile picture"
+                  alt="Profile"
                   className={`h-24 w-24 rounded-full object-cover ring-2 transition-all ${
-                    imageError ? 'ring-red-500' : 'ring-border hover:ring-4'
+                    imageError ? "ring-red-500" : "ring-border hover:ring-4"
                   }`}
                 />
                 {isOptimizing && (
@@ -209,7 +230,9 @@ export default function EditProfileModal({ open, onOpenChange, currentProfile }:
             type="submit"
             disabled={isSubmitting || isOptimizing}
             className={`w-full rounded-full transition-all ${
-              showSuccess ? 'bg-green-500 hover:bg-green-600' : 'bg-foreground text-background hover:bg-foreground/90'
+              showSuccess
+                ? "bg-green-500 hover:bg-green-600"
+                : "bg-foreground text-background hover:bg-foreground/90"
             }`}
           >
             {showSuccess ? (
@@ -223,7 +246,7 @@ export default function EditProfileModal({ open, onOpenChange, currentProfile }:
                 Saving...
               </>
             ) : (
-              'Save Changes'
+              "Save Changes"
             )}
           </Button>
         </form>

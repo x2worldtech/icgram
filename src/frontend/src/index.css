@@ -3,199 +3,326 @@
 @tailwind utilities;
 
 @layer base {
-    :root {
-        --radius: 1rem;
-        --background: 0.99 0 0;
-        --foreground: 0.15 0 0;
-        --card: 1 0 0;
-        --card-foreground: 0.15 0 0;
-        --popover: 1 0 0;
-        --popover-foreground: 0.15 0 0;
-        --primary: 0.15 0 0;
-        --primary-foreground: 0.99 0 0;
-        --secondary: 0.96 0 0;
-        --secondary-foreground: 0.15 0 0;
-        --muted: 0.96 0 0;
-        --muted-foreground: 0.5 0 0;
-        --accent: 0.96 0 0;
-        --accent-foreground: 0.15 0 0;
-        --destructive: 0.577 0.245 27.325;
-        --destructive-foreground: 0.99 0 0;
-        --border: 0.93 0 0;
-        --input: 0.93 0 0;
-        --ring: 0.15 0 0;
-        --chart-1: 0.646 0.222 41.116;
-        --chart-2: 0.6 0.118 184.704;
-        --chart-3: 0.398 0.07 227.392;
-        --chart-4: 0.828 0.189 84.429;
-        --chart-5: 0.769 0.188 70.08;
-    }
+  :root {
+    --radius: 1rem;
+    --background: 0.99 0 0;
+    --foreground: 0.15 0 0;
+    --card: 1 0 0;
+    --card-foreground: 0.15 0 0;
+    --popover: 1 0 0;
+    --popover-foreground: 0.15 0 0;
+    --primary: 0.15 0 0;
+    --primary-foreground: 0.99 0 0;
+    --secondary: 0.96 0 0;
+    --secondary-foreground: 0.15 0 0;
+    --muted: 0.96 0 0;
+    --muted-foreground: 0.5 0 0;
+    --accent: 0.96 0 0;
+    --accent-foreground: 0.15 0 0;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.99 0 0;
+    --border: 0.93 0 0;
+    --input: 0.93 0 0;
+    --ring: 0.15 0 0;
+    --chart-1: 0.646 0.222 41.116;
+    --chart-2: 0.6 0.118 184.704;
+    --chart-3: 0.398 0.07 227.392;
+    --chart-4: 0.828 0.189 84.429;
+    --chart-5: 0.769 0.188 70.08;
+  }
 
-    .dark {
-        --background: 0.145 0 0;
-        --foreground: 0.985 0 0;
-        --card: 0.205 0 0;
-        --card-foreground: 0.985 0 0;
-        --popover: 0.269 0 0;
-        --popover-foreground: 0.985 0 0;
-        --primary: 0.922 0 0;
-        --primary-foreground: 0.205 0 0;
-        --secondary: 0.269 0 0;
-        --secondary-foreground: 0.985 0 0;
-        --muted: 0.269 0 0;
-        --muted-foreground: 0.708 0 0;
-        --accent: 0.371 0 0;
-        --accent-foreground: 0.985 0 0;
-        --destructive: 0.704 0.191 22.216;
-        --destructive-foreground: 0.205 0 0;
-        --border: 1 0 0 / 10%;
-        --input: 1 0 0 / 15%;
-        --ring: 0.556 0 0;
-        --chart-1: 0.488 0.243 264.376;
-        --chart-2: 0.696 0.17 162.48;
-        --chart-3: 0.769 0.188 70.08;
-        --chart-4: 0.627 0.265 303.9;
-        --chart-5: 0.645 0.246 16.439;
-    }
+  .dark {
+    --background: 0.145 0 0;
+    --foreground: 0.985 0 0;
+    --card: 0.205 0 0;
+    --card-foreground: 0.985 0 0;
+    --popover: 0.269 0 0;
+    --popover-foreground: 0.985 0 0;
+    --primary: 0.922 0 0;
+    --primary-foreground: 0.205 0 0;
+    --secondary: 0.269 0 0;
+    --secondary-foreground: 0.985 0 0;
+    --muted: 0.269 0 0;
+    --muted-foreground: 0.708 0 0;
+    --accent: 0.371 0 0;
+    --accent-foreground: 0.985 0 0;
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.205 0 0;
+    --border: 1 0 0 / 10%;
+    --input: 1 0 0 / 15%;
+    --ring: 0.556 0 0;
+    --chart-1: 0.488 0.243 264.376;
+    --chart-2: 0.696 0.17 162.48;
+    --chart-3: 0.769 0.188 70.08;
+    --chart-4: 0.627 0.265 303.9;
+    --chart-5: 0.645 0.246 16.439;
+  }
 
-    * {
-        @apply border-border;
-    }
+  * {
+    @apply border-border;
+  }
 
-    /* Native app-like experience: prevent text selection, link highlighting, and zoom gestures */
-    html,
-    body {
-        /* Prevent text selection globally */
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
+  /* Native app-like experience: prevent text selection, link highlighting, and zoom gestures */
+  html,
+  body {
+    /* Prevent text selection globally */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 
-        /* Prevent tap highlight on mobile */
-        -webkit-tap-highlight-color: transparent;
-        -webkit-touch-callout: none;
+    /* Prevent tap highlight on mobile */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
 
-        /* Prevent double-tap zoom */
-        touch-action: pan-x pan-y;
+    /* Prevent double-tap zoom */
+    touch-action: pan-x pan-y;
 
-        /* Lock viewport to prevent pinch zoom */
-        overflow: hidden;
-        position: fixed;
-        width: 100%;
-        height: 100%;
-    }
+    /* Lock viewport to prevent pinch zoom */
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
 
-    body {
-        @apply bg-background text-foreground;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
+  body {
+    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+      "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-    /* Allow text selection for input fields and textareas */
-    input,
-    textarea,
-    [contenteditable="true"] {
-        -webkit-user-select: text;
-        -moz-user-select: text;
-        -ms-user-select: text;
-        user-select: text;
-    }
+  /* Allow text selection for input fields and textareas */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
 
-    /* Prevent zoom on input focus for iOS */
-    input,
-    textarea,
-    select {
-        font-size: 16px;
-    }
+  /* Prevent zoom on input focus for iOS */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 @layer utilities {
-    .text-balance {
-        text-wrap: balance;
-    }
+  .text-balance {
+    text-wrap: balance;
+  }
 }
 
 /* Instagram-style feed layout optimizations */
 @layer components {
-    /* Feed container - snap scrolling for mobile */
-    .feed-container {
-        @apply space-y-0;
-    }
+  /* Feed container - snap scrolling for mobile */
+  .feed-container {
+    @apply space-y-0;
+  }
 
-    /* Post card - fits within viewport */
-    .post-card {
-        min-height: 0;
-        max-height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
+  /* Post card - fits within viewport */
+  .post-card {
+    min-height: 0;
+    max-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 
-    /* Image container - responsive height with constraints */
+  /* Image container - responsive height with constraints */
+  .post-image-container {
+    position: relative;
+    width: 100%;
+    max-height: calc(100vh - 14rem); /* viewport - header - footer - actions */
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .post-image-container img {
+    width: 100%;
+    height: auto;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Skeleton for image loading */
+  .post-image-skeleton {
+    width: 100%;
+    height: 400px;
+    max-height: calc(100vh - 14rem);
+  }
+
+  /* Footer with consistent spacing */
+  .post-footer {
+    min-height: 140px;
+  }
+
+  /* Mobile optimizations */
+  @media (max-width: 640px) {
     .post-image-container {
-        position: relative;
-        width: 100%;
-        max-height: calc(100vh - 14rem); /* viewport - header - footer - actions */
-        min-height: 300px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
+      max-height: calc(100vh - 16rem); /* More space for mobile UI */
+      min-height: 250px;
     }
 
-    .post-image-container img {
-        width: 100%;
-        height: auto;
-        max-height: 100%;
-        object-fit: contain;
-        display: block;
-    }
-
-    /* Skeleton for image loading */
     .post-image-skeleton {
-        width: 100%;
-        height: 400px;
-        max-height: calc(100vh - 14rem);
+      height: 350px;
+      max-height: calc(100vh - 16rem);
+    }
+  }
+
+  /* Landscape orientation adjustments */
+  @media (orientation: landscape) and (max-height: 600px) {
+    .post-image-container {
+      max-height: calc(100vh - 12rem);
+      min-height: 200px;
     }
 
-    /* Footer with consistent spacing */
     .post-footer {
-        min-height: 140px;
+      min-height: 120px;
+    }
+  }
+
+  /* Tablet and larger screens */
+  @media (min-width: 768px) {
+    .post-image-container {
+      max-height: 600px;
     }
 
-    /* Mobile optimizations */
-    @media (max-width: 640px) {
-        .post-image-container {
-            max-height: calc(100vh - 16rem); /* More space for mobile UI */
-            min-height: 250px;
-        }
-
-        .post-image-skeleton {
-            height: 350px;
-            max-height: calc(100vh - 16rem);
-        }
+    .post-image-skeleton {
+      height: 500px;
     }
+  }
+}
 
-    /* Landscape orientation adjustments */
-    @media (orientation: landscape) and (max-height: 600px) {
-        .post-image-container {
-            max-height: calc(100vh - 12rem);
-            min-height: 200px;
-        }
+/* ============================================================
+   Login Page – animations (scoped to LoginPage usage only)
+   ============================================================ */
+@keyframes icgram-orb-1 {
+  0%,
+  100% {
+    transform: translate3d(-10%, -10%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(15%, 20%, 0) scale(1.15);
+  }
+}
 
-        .post-footer {
-            min-height: 120px;
-        }
-    }
+@keyframes icgram-orb-2 {
+  0%,
+  100% {
+    transform: translate3d(20%, -5%, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(-15%, 25%, 0) scale(0.95);
+  }
+}
 
-    /* Tablet and larger screens */
-    @media (min-width: 768px) {
-        .post-image-container {
-            max-height: 600px;
-        }
+@keyframes icgram-orb-3 {
+  0%,
+  100% {
+    transform: translate3d(0%, 30%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-25%, -10%, 0) scale(1.2);
+  }
+}
 
-        .post-image-skeleton {
-            height: 500px;
-        }
-    }
+@keyframes icgram-shimmer {
+  0% {
+    transform: translateX(-150%) skewX(-12deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(250%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes icgram-fade-up {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes icgram-logo-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes icgram-grid-pan {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 80px 80px;
+  }
+}
+
+@keyframes icgram-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes icgram-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes icgram-spin-reverse {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes icgram-dash {
+  0% {
+    stroke-dashoffset: 280;
+  }
+  50% {
+    stroke-dashoffset: 70;
+  }
+  100% {
+    stroke-dashoffset: 280;
+  }
+}
+
+@keyframes icgram-loader-text {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
 }

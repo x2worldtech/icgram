@@ -1,14 +1,22 @@
-import { useParams, useNavigate } from '@tanstack/react-router';
-import { Principal } from '@icp-sdk/core/principal';
-import { useGetUserProfile, useGetUserPosts, useFollowUser, useUnfollowUser, useGetCallerUserProfile, useGetTotalLikesForUser, useDeletePost } from '../hooks/useQueries';
-import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft, Grid3x3, Trash2, Check } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useState, lazy, Suspense } from 'react';
-import type { Post } from '../backend';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useInternetIdentity } from "@caffeineai/core-infrastructure";
+import { Principal } from "@icp-sdk/core/principal";
+import { useNavigate, useParams } from "@tanstack/react-router";
+import { ArrowLeft, Check, Grid3x3, Loader2, Trash2 } from "lucide-react";
+import { Suspense, lazy, useState } from "react";
+import {
+  useDeletePost,
+  useFollowUser,
+  useGetCallerUserProfile,
+  useGetTotalLikesForUser,
+  useGetUserPosts,
+  useGetUserProfile,
+  useUnfollowUser,
+} from "../hooks/useQueries";
+import type { Post } from "../types";
 
-const PostDetailModal = lazy(() => import('../components/PostDetailModal'));
+const PostDetailModal = lazy(() => import("../components/PostDetailModal"));
 
 function CreatorProfileSkeleton() {
   return (
@@ -45,10 +53,12 @@ function CreatorProfileSkeleton() {
 }
 
 export default function CreatorProfilePage() {
-  const { principalId } = useParams({ from: '/user/$principalId' });
+  const { principalId } = useParams({ from: "/user/$principalId" });
   const navigate = useNavigate();
   const { identity } = useInternetIdentity();
-  const [imageLoadStates, setImageLoadStates] = useState<Record<string, boolean>>({});
+  const [imageLoadStates, setImageLoadStates] = useState<
+    Record<string, boolean>
+  >({});
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [followSuccess, setFollowSuccess] = useState(false);
@@ -57,37 +67,40 @@ export default function CreatorProfilePage() {
   try {
     userPrincipal = Principal.fromText(principalId);
   } catch (error) {
-    console.error('Invalid principal:', error);
+    console.error("Invalid principal:", error);
   }
 
-  const { data: userProfile, isLoading: profileLoading } = useGetUserProfile(userPrincipal);
-  const { data: userPosts, isLoading: postsLoading } = useGetUserPosts(userPrincipal);
-  const { data: totalLikes, isLoading: totalLikesLoading } = useGetTotalLikesForUser(userPrincipal);
+  const { data: userProfile, isLoading: profileLoading } =
+    useGetUserProfile(userPrincipal);
+  const { data: userPosts, isLoading: postsLoading } =
+    useGetUserPosts(userPrincipal);
+  const { data: totalLikes, isLoading: totalLikesLoading } =
+    useGetTotalLikesForUser(userPrincipal);
   const { data: currentUserProfile } = useGetCallerUserProfile();
   const followUser = useFollowUser();
   const unfollowUser = useUnfollowUser();
   const deletePost = useDeletePost();
 
-  const currentUserPrincipal = identity?.getPrincipal();
-  const isOwnProfile = currentUserPrincipal ? principalId === currentUserPrincipal.toString() : false;
+  const currentUserPrincipal = identity?.getPrincipal().toString();
+  const _isOwnProfile = principalId === currentUserPrincipal;
 
-  const isFollowing = currentUserProfile?.following.some(
-    (p) => p.toString() === principalId
-  ) || false;
+  const isFollowing =
+    currentUserProfile?.following.some((p) => p.toString() === principalId) ||
+    false;
 
   const handleFollowToggle = async () => {
-    if (!userPrincipal || !currentUserPrincipal) return;
+    if (!userPrincipal) return;
 
     try {
       if (isFollowing) {
-        await unfollowUser.mutateAsync({ userToUnfollow: userPrincipal, currentUserPrincipal });
+        await unfollowUser.mutateAsync(userPrincipal);
       } else {
-        await followUser.mutateAsync({ userToFollow: userPrincipal, currentUserPrincipal });
+        await followUser.mutateAsync(userPrincipal);
         setFollowSuccess(true);
         setTimeout(() => setFollowSuccess(false), 2000);
       }
-    } catch (error: any) {
-      // Silent error
+    } catch (_error: unknown) {
+      // Silent error handling
     }
   };
 
@@ -105,7 +118,7 @@ export default function CreatorProfilePage() {
 
   const handleDeleteClick = (e: React.MouseEvent, postId: string) => {
     e.stopPropagation();
-    
+
     if (deleteConfirmId === postId) {
       handleDeletePost(postId);
     } else {
@@ -115,13 +128,11 @@ export default function CreatorProfilePage() {
   };
 
   const handleDeletePost = async (postId: string) => {
-    if (!currentUserPrincipal) return;
-
     try {
-      await deletePost.mutateAsync({ postId, authorPrincipal: currentUserPrincipal });
+      await deletePost.mutateAsync(postId);
       setDeleteConfirmId(null);
-    } catch (error: any) {
-      // Silent error
+    } catch (_error: unknown) {
+      // Silent error handling
     }
   };
 
@@ -133,7 +144,11 @@ export default function CreatorProfilePage() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-16 px-4">
         <p className="text-lg text-muted-foreground">User not found</p>
-        <Button onClick={() => navigate({ to: '/' })} variant="outline" className="rounded-full">
+        <Button
+          onClick={() => navigate({ to: "/" })}
+          variant="outline"
+          className="rounded-full"
+        >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Feed
         </Button>
@@ -143,9 +158,11 @@ export default function CreatorProfilePage() {
 
   const profileImageUrl = userProfile.profilePicture
     ? userProfile.profilePicture.getDirectURL()
-    : '/assets/generated/default-avatar.dim_200x200.png';
+    : "/assets/generated/default-avatar.dim_200x200.png";
 
-  const sortedPosts = userPosts ? [...userPosts].sort((a, b) => Number(b.timestamp - a.timestamp)) : [];
+  const sortedPosts = userPosts
+    ? [...userPosts].sort((a, b) => Number(b.timestamp - a.timestamp))
+    : [];
 
   return (
     <>
@@ -153,7 +170,8 @@ export default function CreatorProfilePage() {
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-xl border-b border-border">
           <div className="flex items-center gap-3 px-4 py-3">
             <button
-              onClick={() => navigate({ to: '/' })}
+              type="button"
+              onClick={() => navigate({ to: "/" })}
               className="rounded-full p-2 hover:bg-muted transition-colors"
               aria-label="Back"
             >
@@ -161,7 +179,9 @@ export default function CreatorProfilePage() {
             </button>
             <div>
               <h2 className="font-medium">{userProfile.displayName}</h2>
-              <p className="text-xs text-muted-foreground">@{userProfile.username}</p>
+              <p className="text-xs text-muted-foreground">
+                @{userProfile.username}
+              </p>
             </div>
           </div>
         </div>
@@ -174,8 +194,12 @@ export default function CreatorProfilePage() {
               className="h-20 w-20 rounded-full object-cover ring-2 ring-border flex-shrink-0"
             />
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-light truncate">{userProfile.displayName}</h1>
-              <p className="text-sm text-muted-foreground truncate">@{userProfile.username}</p>
+              <h1 className="text-xl font-light truncate">
+                {userProfile.displayName}
+              </h1>
+              <p className="text-sm text-muted-foreground truncate">
+                @{userProfile.username}
+              </p>
             </div>
           </div>
 
@@ -185,11 +209,15 @@ export default function CreatorProfilePage() {
 
           <div className="flex gap-8 justify-center">
             <div className="text-center">
-              <p className="text-lg font-light">{userProfile.followers.length}</p>
+              <p className="text-lg font-light">
+                {userProfile.followers.length}
+              </p>
               <p className="text-xs text-muted-foreground">Followers</p>
             </div>
             <div className="text-center">
-              <p className="text-lg font-light">{userProfile.following.length}</p>
+              <p className="text-lg font-light">
+                {userProfile.following.length}
+              </p>
               <p className="text-xs text-muted-foreground">Following</p>
             </div>
             <div className="text-center">
@@ -205,15 +233,15 @@ export default function CreatorProfilePage() {
           <Button
             onClick={handleFollowToggle}
             disabled={followUser.isPending || unfollowUser.isPending}
-            variant={isFollowing ? 'outline' : 'default'}
+            variant={isFollowing ? "outline" : "default"}
             className={`w-full rounded-full transition-all ${
-              followSuccess ? 'bg-green-500 hover:bg-green-600' : ''
+              followSuccess ? "bg-green-500 hover:bg-green-600" : ""
             }`}
           >
             {followUser.isPending || unfollowUser.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isFollowing ? 'Unfollowing...' : 'Following...'}
+                {isFollowing ? "Unfollowing..." : "Following..."}
               </>
             ) : followSuccess ? (
               <>
@@ -221,9 +249,9 @@ export default function CreatorProfilePage() {
                 Following!
               </>
             ) : isFollowing ? (
-              'Unfollow'
+              "Unfollow"
             ) : (
-              'Follow'
+              "Follow"
             )}
           </Button>
         </div>
@@ -249,10 +277,13 @@ export default function CreatorProfilePage() {
               {sortedPosts.map((post) => {
                 const imageUrl = post.image.getDirectURL();
                 const isLoaded = imageLoadStates[post.id];
+                const isOwnPost =
+                  post.author.toString() === currentUserPrincipal;
                 const isConfirming = deleteConfirmId === post.id;
 
                 return (
                   <button
+                    type="button"
                     key={post.id}
                     onClick={() => handlePostClick(post)}
                     className="relative aspect-square bg-muted overflow-hidden active:opacity-80 transition-opacity group"
@@ -264,24 +295,27 @@ export default function CreatorProfilePage() {
                     )}
                     <img
                       src={imageUrl}
-                      alt={post.caption || 'Post'}
+                      alt={post.caption || "Post"}
                       className={`h-full w-full object-cover transition-opacity duration-300 ${
-                        isLoaded ? 'opacity-100' : 'opacity-0'
+                        isLoaded ? "opacity-100" : "opacity-0"
                       }`}
                       onLoad={() => handleImageLoad(post.id)}
                       loading="lazy"
                     />
-                    {isOwnProfile && (
-                      <div
+                    {isOwnPost && (
+                      <button
+                        type="button"
                         onClick={(e) => handleDeleteClick(e, post.id)}
                         className={`absolute top-2 right-2 backdrop-blur-sm rounded-full p-1.5 transition-all ${
                           isConfirming
-                            ? 'bg-destructive opacity-100'
-                            : 'bg-background/80 opacity-0 group-hover:opacity-100'
+                            ? "bg-destructive opacity-100"
+                            : "bg-background/80 opacity-0 group-hover:opacity-100"
                         }`}
                       >
-                        <Trash2 className={`h-4 w-4 ${isConfirming ? 'text-white' : 'text-destructive'}`} />
-                      </div>
+                        <Trash2
+                          className={`h-4 w-4 ${isConfirming ? "text-white" : "text-destructive"}`}
+                        />
+                      </button>
                     )}
                   </button>
                 );
@@ -293,7 +327,10 @@ export default function CreatorProfilePage() {
 
       {selectedPost && (
         <Suspense fallback={null}>
-          <PostDetailModal post={selectedPost} onClose={handleClosePostDetail} />
+          <PostDetailModal
+            post={selectedPost}
+            onClose={handleClosePostDetail}
+          />
         </Suspense>
       )}
     </>

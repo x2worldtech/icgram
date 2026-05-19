@@ -1,20 +1,28 @@
-import { useGetInbox, useGetUserProfile, useGetPost, useGetComments } from '../hooks/useQueries';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Heart, MessageCircle } from 'lucide-react';
-import { useNavigate } from '@tanstack/react-router';
-import { useState, lazy, Suspense } from 'react';
-import type { Activity, Post } from '../backend';
-import { Variant_like_comment } from '../backend';
+import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "@tanstack/react-router";
+import { Heart, MessageCircle } from "lucide-react";
+import { Suspense, lazy, useState } from "react";
+import {
+  useGetComments,
+  useGetInbox,
+  useGetPost,
+  useGetUserProfile,
+} from "../hooks/useQueries";
+import type { Activity, Post } from "../types";
+import { Variant_like_comment } from "../types";
 
-const PostDetailModal = lazy(() => import('../components/PostDetailModal'));
+const PostDetailModal = lazy(() => import("../components/PostDetailModal"));
 
 function InboxSkeleton() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-4 space-y-4">
         <Skeleton className="h-8 w-32 mb-4" />
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex items-start gap-3 p-4 border border-border rounded-lg">
+        {["sk-a", "sk-b", "sk-c", "sk-d", "sk-e"].map((skKey) => (
+          <div
+            key={skKey}
+            className="flex items-start gap-3 p-4 border border-border rounded-lg"
+          >
             <Skeleton className="h-12 w-12 rounded-full flex-shrink-0" />
             <div className="flex-1 space-y-2">
               <Skeleton className="h-4 w-3/4" />
@@ -29,7 +37,7 @@ function InboxSkeleton() {
 }
 
 export default function InboxPage() {
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const { data: activities, isLoading } = useGetInbox();
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
@@ -91,7 +99,7 @@ function ActivityItem({ activity, onPostClick }: ActivityItemProps) {
 
   const actorImageUrl = actorProfile?.profilePicture
     ? actorProfile.profilePicture.getDirectURL()
-    : '/assets/generated/default-avatar.dim_200x200.png';
+    : "/assets/generated/default-avatar.dim_200x200.png";
 
   const postImageUrl = post?.image.getDirectURL();
 
@@ -103,64 +111,68 @@ function ActivityItem({ activity, onPostClick }: ActivityItemProps) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
   };
 
   const handleNavigateToProfile = () => {
     const principalId = activity.activityActor.toString();
-    navigate({ to: '/user/$principalId', params: { principalId } });
+    navigate({ to: "/user/$principalId", params: { principalId } });
   };
 
   const getActivityText = () => {
-    const username = actorProfile?.username || 'Someone';
-    
+    const username = actorProfile?.username || "Someone";
+
     if (activity.activityType === Variant_like_comment.like) {
       if (activity.commentId) {
         return (
           <>
             <button
+              type="button"
               onClick={handleNavigateToProfile}
               className="font-semibold hover:opacity-80 transition-opacity"
             >
               {username}
             </button>
-            {' liked your comment'}
+            {" liked your comment"}
           </>
         );
       }
       return (
         <>
           <button
+            type="button"
             onClick={handleNavigateToProfile}
             className="font-semibold hover:opacity-80 transition-opacity"
           >
             {username}
           </button>
-          {' liked your post'}
+          {" liked your post"}
         </>
       );
     }
 
     if (activity.activityType === Variant_like_comment.comment) {
       const comment = comments?.find((c) => c.id === activity.commentId);
-      const commentText = comment?.text || '';
-      const truncatedComment = commentText.length > 50 
-        ? commentText.substring(0, 50) + '...' 
-        : commentText;
+      const commentText = comment?.text || "";
+      const truncatedComment =
+        commentText.length > 50
+          ? `${commentText.substring(0, 50)}...`
+          : commentText;
 
       return (
         <>
           <button
+            type="button"
             onClick={handleNavigateToProfile}
             className="font-semibold hover:opacity-80 transition-opacity"
           >
             {username}
           </button>
-          {' commented: '}
+          {" commented: "}
           <span className="text-muted-foreground">{truncatedComment}</span>
         </>
       );
@@ -185,12 +197,13 @@ function ActivityItem({ activity, onPostClick }: ActivityItemProps) {
   return (
     <div className="flex items-start gap-3 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors">
       <button
+        type="button"
         onClick={handleNavigateToProfile}
         className="flex-shrink-0 hover:opacity-80 transition-opacity"
       >
         <img
           src={actorImageUrl}
-          alt={actorProfile?.displayName || 'User'}
+          alt={actorProfile?.displayName || "User"}
           className="h-12 w-12 rounded-full object-cover"
         />
       </button>
@@ -200,11 +213,14 @@ function ActivityItem({ activity, onPostClick }: ActivityItemProps) {
           <div className="flex-shrink-0 mt-1">{getActivityIcon()}</div>
           <p className="text-sm flex-1">{getActivityText()}</p>
         </div>
-        <p className="text-xs text-muted-foreground">{formatTimestamp(activity.timestamp)}</p>
+        <p className="text-xs text-muted-foreground">
+          {formatTimestamp(activity.timestamp)}
+        </p>
       </div>
 
       {postImageUrl && (
         <button
+          type="button"
           onClick={handlePostClick}
           className="flex-shrink-0 hover:opacity-80 transition-opacity"
         >

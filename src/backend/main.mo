@@ -1,36 +1,22 @@
-import AccessControl "authorization/access-control";
-import MixinStorage "blob-storage/Mixin";
-import Storage "blob-storage/Storage";
-import OrderedMap "mo:base/OrderedMap";
-import Principal "mo:base/Principal";
-import Time "mo:base/Time";
-import Debug "mo:base/Debug";
-import List "mo:base/List";
-import Text "mo:base/Text";
-import Array "mo:base/Array";
-import Int "mo:base/Int";
+import AccessControl "mo:caffeineai-authorization/access-control";
+import MixinAuthorization "mo:caffeineai-authorization/MixinAuthorization";
+import MixinObjectStorage "mo:caffeineai-object-storage/Mixin";
+import Storage "mo:caffeineai-object-storage/Storage";
+import Map "mo:core/Map";
+import List "mo:core/List";
+import Principal "mo:core/Principal";
+import Time "mo:core/Time";
+import Array "mo:core/Array";
+import Runtime "mo:core/Runtime";
+import Int "mo:core/Int";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
-  let storage = Storage.new();
-  include MixinStorage(storage);
+  include MixinObjectStorage();
 
   let accessControlState = AccessControl.initState();
-
-  public shared ({ caller }) func initializeAccessControl() : async () {
-    AccessControl.initialize(accessControlState, caller);
-  };
-
-  public query ({ caller }) func getCallerUserRole() : async AccessControl.UserRole {
-    AccessControl.getUserRole(accessControlState, caller);
-  };
-
-  public shared ({ caller }) func assignCallerUserRole(user : Principal, role : AccessControl.UserRole) : async () {
-    AccessControl.assignRole(accessControlState, caller, user, role);
-  };
-
-  public query ({ caller }) func isCallerAdmin() : async Bool {
-    AccessControl.isAdmin(accessControlState, caller);
-  };
+  include MixinAuthorization(accessControlState);
 
   public type UserProfile = {
     username : Text;
@@ -48,6 +34,7 @@ actor {
     caption : Text;
     timestamp : Int;
     likes : [Principal];
+    commentCount : ?Nat;
   };
 
   public type Comment = {
@@ -69,34 +56,53 @@ actor {
     timestamp : Int;
   };
 
-  transient let principalMap = OrderedMap.Make<Principal>(Principal.compare);
-  transient let textMap = OrderedMap.Make<Text>(Text.compare);
+  let userProfiles = Map.empty<Principal, UserProfile>();
+  let posts = Map.empty<Text, Post>();
+  let comments = Map.empty<Text, Comment>();
+  let activities = Map.empty<Text, Activity>();
 
-  var userProfiles = principalMap.empty<UserProfile>();
-  var posts = textMap.empty<Post>();
-  var comments = textMap.empty<Comment>();
-  var activities = textMap.empty<Activity>();
+  func principalArrayContains(arr : [Principal], p : Principal) : Bool {
+    for (item in arr.vals()) {
+      if (item == p) return true;
+    };
+    false;
+  };
+
+  func principalArrayRemove(arr : [Principal], p : Principal) : [Principal] {
+    let buf = List.empty<Principal>();
+    for (item in arr.vals()) {
+      if (item != p) buf.add(item);
+    };
+    buf.toArray();
+  };
+
+  func principalArrayAppend(arr : [Principal], p : Principal) : [Principal] {
+    let buf = List.empty<Principal>();
+    for (item in arr.vals()) { buf.add(item) };
+    buf.add(p);
+    buf.toArray();
+  };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view profiles");
+      Runtime.trap("Unauthorized: Only users can view profiles");
     };
-    principalMap.get(userProfiles, caller);
+    userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view profiles");
+      Runtime.trap("Unauthorized: Only users can view profiles");
     };
-    principalMap.get(userProfiles, user);
+    userProfiles.get(user);
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can save profiles");
+      Runtime.trap("Unauthorized: Only users can save profiles");
     };
 
-    switch (principalMap.get(userProfiles, caller)) {
+    switch (userProfiles.get(caller)) {
       case (null) {
         let newProfile : UserProfile = {
           username = profile.username;
@@ -106,7 +112,7 @@ actor {
           followers = [];
           following = [];
         };
-        userProfiles := principalMap.put(userProfiles, caller, newProfile);
+        userProfiles.add(caller, newProfile);
       };
       case (?existingProfile) {
         let updatedProfile : UserProfile = {
@@ -117,17 +123,17 @@ actor {
           followers = existingProfile.followers;
           following = existingProfile.following;
         };
-        userProfiles := principalMap.put(userProfiles, caller, updatedProfile);
+        userProfiles.add(caller, updatedProfile);
       };
     };
   };
 
   public shared ({ caller }) func createPost(image : Storage.ExternalBlob, caption : Text) : async Text {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can create posts");
+      Runtime.trap("Unauthorized: Only users can create posts");
     };
 
-    let postId = Text.concat("post-", debug_show (Time.now()));
+    let postId = "post-" # debug_show (Time.now());
     let newPost : Post = {
       id = postId;
       author = caller;
@@ -135,48 +141,43 @@ actor {
       caption;
       timestamp = Time.now();
       likes = [];
+      commentCount = ?0;
     };
 
-    posts := textMap.put(posts, postId, newPost);
+    posts.add(postId, newPost);
     postId;
   };
 
   public shared ({ caller }) func deletePost(postId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can delete posts");
+      Runtime.trap("Unauthorized: Only users can delete posts");
     };
 
-    switch (textMap.get(posts, postId)) {
-      case (null) { Debug.trap("Post not found") };
+    switch (posts.get(postId)) {
+      case (null) { Runtime.trap("Post not found") };
       case (?post) {
         if (post.author != caller) {
-          Debug.trap("Unauthorized: Only the author can delete this post");
+          Runtime.trap("Unauthorized: Only the author can delete this post");
         };
 
-        posts := textMap.delete(posts, postId);
+        posts.remove(postId);
 
-        // Remove associated comments
-        var commentList = List.nil<(Text, Comment)>();
-        for ((id, comment) in textMap.entries(comments)) {
-          if (comment.postId == postId) {
-            commentList := List.push((id, comment), commentList);
-          };
+        // Delete related comments
+        let commentIdsToDelete = List.empty<Text>();
+        for ((id, comment) in comments.entries()) {
+          if (comment.postId == postId) commentIdsToDelete.add(id);
         };
-        let commentArray = List.toArray(commentList);
-        for ((id, _) in commentArray.vals()) {
-          comments := textMap.delete(comments, id);
+        for (id in commentIdsToDelete.values()) {
+          comments.remove(id);
         };
 
-        // Remove associated activities
-        var activityList = List.nil<(Text, Activity)>();
-        for ((id, activity) in textMap.entries(activities)) {
-          if (activity.postId == postId) {
-            activityList := List.push((id, activity), activityList);
-          };
+        // Delete related activities
+        let activityIdsToDelete = List.empty<Text>();
+        for ((id, activity) in activities.entries()) {
+          if (activity.postId == postId) activityIdsToDelete.add(id);
         };
-        let activityArray = List.toArray(activityList);
-        for ((id, _) in activityArray.vals()) {
-          activities := textMap.delete(activities, id);
+        for (id in activityIdsToDelete.values()) {
+          activities.remove(id);
         };
       };
     };
@@ -184,17 +185,14 @@ actor {
 
   public query ({ caller }) func getFeed() : async [Post] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view feed");
+      Runtime.trap("Unauthorized: Only users can view feed");
     };
 
-    var allPosts = List.nil<Post>();
-    for (post in textMap.vals(posts)) {
-      allPosts := List.push(post, allPosts);
-    };
-    let allPostsArray = List.toArray(allPosts);
-    Array.sort(
-      allPostsArray,
-      func(a : Post, b : Post) : { #less; #equal; #greater } {
+    let buf = List.empty<Post>();
+    for (post in posts.values()) { buf.add(post) };
+    let allPosts = buf.toArray();
+    allPosts.sort<Post>(
+      func(a, b) {
         if (a.timestamp > b.timestamp) { #less } else if (a.timestamp < b.timestamp) {
           #greater;
         } else { #equal };
@@ -204,19 +202,16 @@ actor {
 
   public query ({ caller }) func getUserPosts(user : Principal) : async [Post] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view posts");
+      Runtime.trap("Unauthorized: Only users can view posts");
     };
 
-    var userPosts = List.nil<Post>();
-    for (post in textMap.vals(posts)) {
-      if (post.author == user) {
-        userPosts := List.push(post, userPosts);
-      };
+    let buf = List.empty<Post>();
+    for (post in posts.values()) {
+      if (post.author == user) buf.add(post);
     };
-    let userPostsArray = List.toArray(userPosts);
-    Array.sort(
-      userPostsArray,
-      func(a : Post, b : Post) : { #less; #equal; #greater } {
+    let filtered = buf.toArray();
+    filtered.sort<Post>(
+      func(a, b) {
         if (a.timestamp > b.timestamp) { #less } else if (a.timestamp < b.timestamp) {
           #greater;
         } else { #equal };
@@ -226,32 +221,16 @@ actor {
 
   public query ({ caller }) func getMultipleUsersPosts(users : [Principal]) : async [Post] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view posts");
+      Runtime.trap("Unauthorized: Only users can view posts");
     };
 
-    let userSet = List.toArray(
-      Array.foldLeft<Principal, List.List<Principal>>(
-        users,
-        List.nil(),
-        func(acc, user) {
-          List.push(user, acc);
-        },
-      )
-    );
-
-    var multipleUsersPosts = List.nil<Post>();
-    for (post in textMap.vals(posts)) {
-      for (user in userSet.vals()) {
-        if (post.author == user) {
-          multipleUsersPosts := List.push(post, multipleUsersPosts);
-        };
-      };
+    let buf = List.empty<Post>();
+    for (post in posts.values()) {
+      if (principalArrayContains(users, post.author)) buf.add(post);
     };
-
-    let postsArray = List.toArray(multipleUsersPosts);
-    Array.sort(
-      postsArray,
-      func(a : Post, b : Post) : { #less; #equal; #greater } {
+    let filtered = buf.toArray();
+    filtered.sort<Post>(
+      func(a, b) {
         if (a.timestamp > b.timestamp) { #less } else if (a.timestamp < b.timestamp) {
           #greater;
         } else { #equal };
@@ -261,10 +240,10 @@ actor {
 
   public query ({ caller }) func getPostLikes(postId : Text) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view post likes");
+      Runtime.trap("Unauthorized: Only users can view post likes");
     };
 
-    switch (textMap.get(posts, postId)) {
+    switch (posts.get(postId)) {
       case (null) { 0 };
       case (?post) { post.likes.size() };
     };
@@ -272,29 +251,24 @@ actor {
 
   public shared ({ caller }) func likePost(postId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can like posts");
+      Runtime.trap("Unauthorized: Only users can like posts");
     };
 
-    switch (textMap.get(posts, postId)) {
-      case (null) { Debug.trap("Post not found") };
+    switch (posts.get(postId)) {
+      case (null) { Runtime.trap("Post not found") };
       case (?post) {
-        if (List.some<Principal>(List.fromArray(post.likes), func(l) { l == caller })) {
-          Debug.trap("Already liked");
+        if (principalArrayContains(post.likes, caller)) {
+          Runtime.trap("Already liked");
         };
 
         let updatedPost : Post = {
-          id = post.id;
-          author = post.author;
-          image = post.image;
-          caption = post.caption;
-          timestamp = post.timestamp;
-          likes = Array.append(post.likes, [caller]);
+          post with
+          likes = principalArrayAppend(post.likes, caller);
         };
-        posts := textMap.put(posts, postId, updatedPost);
+        posts.add(postId, updatedPost);
 
-        // Create activity for post owner only if caller is not the post owner
         if (caller != post.author) {
-          let activityId = Text.concat("activity-", debug_show (Time.now()));
+          let activityId = "activity-" # debug_show (Time.now());
           let newActivity : Activity = {
             id = activityId;
             activityActor = caller;
@@ -304,7 +278,7 @@ actor {
             postOwner = post.author;
             timestamp = Time.now();
           };
-          activities := textMap.put(activities, activityId, newActivity);
+          activities.add(activityId, newActivity);
         };
       };
     };
@@ -312,52 +286,57 @@ actor {
 
   public shared ({ caller }) func unlikePost(postId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can unlike posts");
+      Runtime.trap("Unauthorized: Only users can unlike posts");
     };
 
-    switch (textMap.get(posts, postId)) {
-      case (null) { Debug.trap("Post not found") };
+    switch (posts.get(postId)) {
+      case (null) { Runtime.trap("Post not found") };
       case (?post) {
-        if (not List.some<Principal>(List.fromArray(post.likes), func(l) { l == caller })) {
-          Debug.trap("Post not liked");
+        if (not principalArrayContains(post.likes, caller)) {
+          Runtime.trap("Post not liked");
         };
 
         let updatedPost : Post = {
-          id = post.id;
-          author = post.author;
-          image = post.image;
-          caption = post.caption;
-          timestamp = post.timestamp;
-          likes = Array.filter(post.likes, func(l : Principal) : Bool { l != caller });
+          post with
+          likes = principalArrayRemove(post.likes, caller);
         };
-        posts := textMap.put(posts, postId, updatedPost);
+        posts.add(postId, updatedPost);
       };
     };
   };
 
-  public shared ({ caller }) func addComment(postId : Text, text : Text) : async Text {
+  public shared ({ caller }) func addComment(postId : Text, commentText : Text) : async Text {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can comment");
+      Runtime.trap("Unauthorized: Only users can comment");
     };
 
-    let commentId = Text.concat("comment-", debug_show (Time.now()));
+    let commentId = "comment-" # debug_show (Time.now());
     let newComment : Comment = {
       id = commentId;
       postId;
       author = caller;
-      text;
+      text = commentText;
       timestamp = Time.now();
       likes = [];
     };
 
-    comments := textMap.put(comments, commentId, newComment);
+    comments.add(commentId, newComment);
 
-    // Create activity for post owner only if caller is not the post owner
-    switch (textMap.get(posts, postId)) {
+    switch (posts.get(postId)) {
       case (null) {};
       case (?post) {
+        let currentCount = switch (post.commentCount) {
+          case (null) { 0 };
+          case (?n) { n };
+        };
+        let updatedPost : Post = {
+          post with
+          commentCount = ?(currentCount + 1);
+        };
+        posts.add(postId, updatedPost);
+
         if (caller != post.author) {
-          let activityId = Text.concat("activity-", debug_show (Time.now()));
+          let activityId = "activity-" # debug_show (Time.now());
           let newActivity : Activity = {
             id = activityId;
             activityActor = caller;
@@ -367,7 +346,7 @@ actor {
             postOwner = post.author;
             timestamp = Time.now();
           };
-          activities := textMap.put(activities, activityId, newActivity);
+          activities.add(activityId, newActivity);
         };
       };
     };
@@ -377,46 +356,39 @@ actor {
 
   public query ({ caller }) func getComments(postId : Text) : async [Comment] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view comments");
+      Runtime.trap("Unauthorized: Only users can view comments");
     };
 
-    var postComments = List.nil<Comment>();
-    for (comment in textMap.vals(comments)) {
-      if (comment.postId == postId) {
-        postComments := List.push(comment, postComments);
-      };
+    let buf = List.empty<Comment>();
+    for (comment in comments.values()) {
+      if (comment.postId == postId) buf.add(comment);
     };
-    List.toArray(postComments);
+    buf.toArray();
   };
 
   public shared ({ caller }) func likeComment(commentId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can like comments");
+      Runtime.trap("Unauthorized: Only users can like comments");
     };
 
-    switch (textMap.get(comments, commentId)) {
-      case (null) { Debug.trap("Comment not found") };
+    switch (comments.get(commentId)) {
+      case (null) { Runtime.trap("Comment not found") };
       case (?comment) {
-        if (List.some<Principal>(List.fromArray(comment.likes), func(l) { l == caller })) {
-          Debug.trap("Already liked");
+        if (principalArrayContains(comment.likes, caller)) {
+          Runtime.trap("Already liked");
         };
 
         let updatedComment : Comment = {
-          id = comment.id;
-          postId = comment.postId;
-          author = comment.author;
-          text = comment.text;
-          timestamp = comment.timestamp;
-          likes = Array.append(comment.likes, [caller]);
+          comment with
+          likes = principalArrayAppend(comment.likes, caller);
         };
-        comments := textMap.put(comments, commentId, updatedComment);
+        comments.add(commentId, updatedComment);
 
-        // Create activity for post owner only if caller is not the post owner
-        switch (textMap.get(posts, comment.postId)) {
+        switch (posts.get(comment.postId)) {
           case (null) {};
           case (?post) {
             if (caller != post.author) {
-              let activityId = Text.concat("activity-", debug_show (Time.now()));
+              let activityId = "activity-" # debug_show (Time.now());
               let newActivity : Activity = {
                 id = activityId;
                 activityActor = caller;
@@ -426,7 +398,7 @@ actor {
                 postOwner = post.author;
                 timestamp = Time.now();
               };
-              activities := textMap.put(activities, activityId, newActivity);
+              activities.add(activityId, newActivity);
             };
           };
         };
@@ -436,67 +408,55 @@ actor {
 
   public shared ({ caller }) func unlikeComment(commentId : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can unlike comments");
+      Runtime.trap("Unauthorized: Only users can unlike comments");
     };
 
-    switch (textMap.get(comments, commentId)) {
-      case (null) { Debug.trap("Comment not found") };
+    switch (comments.get(commentId)) {
+      case (null) { Runtime.trap("Comment not found") };
       case (?comment) {
-        if (not List.some<Principal>(List.fromArray(comment.likes), func(l) { l == caller })) {
-          Debug.trap("Comment not liked");
+        if (not principalArrayContains(comment.likes, caller)) {
+          Runtime.trap("Comment not liked");
         };
 
         let updatedComment : Comment = {
-          id = comment.id;
-          postId = comment.postId;
-          author = comment.author;
-          text = comment.text;
-          timestamp = comment.timestamp;
-          likes = Array.filter(comment.likes, func(l : Principal) : Bool { l != caller });
+          comment with
+          likes = principalArrayRemove(comment.likes, caller);
         };
-        comments := textMap.put(comments, commentId, updatedComment);
+        comments.add(commentId, updatedComment);
       };
     };
   };
 
   public shared ({ caller }) func followUser(userToFollow : Principal) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can follow others");
+      Runtime.trap("Unauthorized: Only users can follow others");
     };
 
     if (caller == userToFollow) {
-      Debug.trap("Cannot follow yourself");
+      Runtime.trap("Cannot follow yourself");
     };
 
-    switch (principalMap.get(userProfiles, caller)) {
-      case (null) { Debug.trap("Your profile not found") };
+    switch (userProfiles.get(caller)) {
+      case (null) { Runtime.trap("Your profile not found") };
       case (?profile) {
-        if (List.some<Principal>(List.fromArray(profile.following), func(f) { f == userToFollow })) {
-          Debug.trap("Already following");
+        if (principalArrayContains(profile.following, userToFollow)) {
+          Runtime.trap("Already following");
         };
 
         let updatedProfile : UserProfile = {
-          username = profile.username;
-          displayName = profile.displayName;
-          bio = profile.bio;
-          profilePicture = profile.profilePicture;
-          followers = profile.followers;
-          following = Array.append(profile.following, [userToFollow]);
+          profile with
+          following = principalArrayAppend(profile.following, userToFollow);
         };
-        userProfiles := principalMap.put(userProfiles, caller, updatedProfile);
+        userProfiles.add(caller, updatedProfile);
 
-        switch (principalMap.get(userProfiles, userToFollow)) {
+        switch (userProfiles.get(userToFollow)) {
           case (null) {};
           case (?followedProfile) {
             let updatedFollowedProfile : UserProfile = {
-              username = followedProfile.username;
-              displayName = followedProfile.displayName;
-              bio = followedProfile.bio;
-              profilePicture = followedProfile.profilePicture;
-              followers = Array.append(followedProfile.followers, [caller]);
-              following = followedProfile.following;
+              followedProfile with
+              followers = principalArrayAppend(followedProfile.followers, caller);
             };
-            userProfiles := principalMap.put(userProfiles, userToFollow, updatedFollowedProfile);
+            userProfiles.add(userToFollow, updatedFollowedProfile);
           };
         };
       };
@@ -505,38 +465,30 @@ actor {
 
   public shared ({ caller }) func unfollowUser(userToUnfollow : Principal) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can unfollow others");
+      Runtime.trap("Unauthorized: Only users can unfollow others");
     };
 
-    switch (principalMap.get(userProfiles, caller)) {
-      case (null) { Debug.trap("Your profile not found") };
+    switch (userProfiles.get(caller)) {
+      case (null) { Runtime.trap("Your profile not found") };
       case (?profile) {
-        if (not List.some<Principal>(List.fromArray(profile.following), func(f) { f == userToUnfollow })) {
-          Debug.trap("Not following this user");
+        if (not principalArrayContains(profile.following, userToUnfollow)) {
+          Runtime.trap("Not following this user");
         };
 
         let updatedProfile : UserProfile = {
-          username = profile.username;
-          displayName = profile.displayName;
-          bio = profile.bio;
-          profilePicture = profile.profilePicture;
-          followers = profile.followers;
-          following = Array.filter(profile.following, func(f : Principal) : Bool { f != userToUnfollow });
+          profile with
+          following = principalArrayRemove(profile.following, userToUnfollow);
         };
-        userProfiles := principalMap.put(userProfiles, caller, updatedProfile);
+        userProfiles.add(caller, updatedProfile);
 
-        switch (principalMap.get(userProfiles, userToUnfollow)) {
+        switch (userProfiles.get(userToUnfollow)) {
           case (null) {};
           case (?unfollowedProfile) {
             let updatedUnfollowedProfile : UserProfile = {
-              username = unfollowedProfile.username;
-              displayName = unfollowedProfile.displayName;
-              bio = unfollowedProfile.bio;
-              profilePicture = unfollowedProfile.profilePicture;
-              followers = Array.filter(unfollowedProfile.followers, func(f : Principal) : Bool { f != caller });
-              following = unfollowedProfile.following;
+              unfollowedProfile with
+              followers = principalArrayRemove(unfollowedProfile.followers, caller);
             };
-            userProfiles := principalMap.put(userProfiles, userToUnfollow, updatedUnfollowedProfile);
+            userProfiles.add(userToUnfollow, updatedUnfollowedProfile);
           };
         };
       };
@@ -545,11 +497,11 @@ actor {
 
   public query ({ caller }) func getTotalLikesForUser(user : Principal) : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view total likes");
+      Runtime.trap("Unauthorized: Only users can view total likes");
     };
 
     var totalLikes : Nat = 0;
-    for (post in textMap.vals(posts)) {
+    for (post in posts.values()) {
       if (post.author == user) {
         totalLikes += post.likes.size();
       };
@@ -559,20 +511,18 @@ actor {
 
   public query ({ caller }) func getInbox() : async [Activity] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Debug.trap("Unauthorized: Only users can view inbox");
+      Runtime.trap("Unauthorized: Only users can view inbox");
     };
 
-    var userActivities = List.nil<Activity>();
-    for (activity in textMap.vals(activities)) {
+    let buf = List.empty<Activity>();
+    for (activity in activities.values()) {
       if (activity.postOwner == caller and activity.activityActor != caller) {
-        userActivities := List.push(activity, userActivities);
+        buf.add(activity);
       };
     };
-
-    let userActivitiesArray = List.toArray(userActivities);
-    Array.sort(
-      userActivitiesArray,
-      func(a : Activity, b : Activity) : { #less; #equal; #greater } {
+    let filtered = buf.toArray();
+    filtered.sort<Activity>(
+      func(a, b) {
         if (a.timestamp > b.timestamp) { #less } else if (a.timestamp < b.timestamp) {
           #greater;
         } else { #equal };
@@ -580,43 +530,74 @@ actor {
     );
   };
 
-  // New endpoint for optimally preloading recent profile pictures
-  public query func getRecentProfilePictures(limit : Int) : async [Storage.ExternalBlob] {
-    var allProfiles = List.nil<UserProfile>();
-    for (profile in principalMap.vals(userProfiles)) {
-      allProfiles := List.push(profile, allProfiles);
+  public query func getRecentProfilePictures(limit : Nat) : async [Storage.ExternalBlob] {
+    let buf = List.empty<UserProfile>();
+    for (profile in userProfiles.values()) {
+      if (profile.profilePicture != null) buf.add(profile);
     };
-
-    // Convert to array and sort by recency based on posts
-    let sortedProfiles = Array.filter<UserProfile>(
-      Array.sort(
-        List.toArray(allProfiles),
-        func(a : UserProfile, b : UserProfile) : { #less; #equal; #greater } {
-          // Sort by follower count as a proxy for recency/activity
-          if (a.followers.size() > b.followers.size()) {
-            #less;
-          } else if (a.followers.size() < b.followers.size()) { #greater } else {
-            #equal;
-          };
-        },
-      ),
-      func(profile) { profile.profilePicture != null },
-    );
-
-    let size = Int.abs(limit);
-    let profilesToReturn = if (size > sortedProfiles.size()) { sortedProfiles } else {
-      Array.tabulate<UserProfile>(size, func(i : Nat) : UserProfile { sortedProfiles[i] });
-    };
-
-    Array.map<UserProfile, Storage.ExternalBlob>(
-      profilesToReturn,
-      func(profile) {
-        switch (profile.profilePicture) {
-          case (null) { Debug.trap("No profile picture") };
-          case (?pic) { pic };
+    let withPics = buf.toArray();
+    let sorted = withPics.sort(
+      func(a, b) {
+        if (a.followers.size() > b.followers.size()) {
+          #less;
+        } else if (a.followers.size() < b.followers.size()) { #greater } else {
+          #equal;
         };
       },
     );
+
+    let size = if (limit > sorted.size()) { sorted.size() } else { limit };
+    let resBuf = List.empty<Storage.ExternalBlob>();
+    var i = 0;
+    while (i < size) {
+      switch (sorted[i].profilePicture) {
+        case (null) {};
+        case (?pic) { resBuf.add(pic) };
+      };
+      i += 1;
+    };
+    resBuf.toArray();
+  };
+
+  // Global stats
+  public query func getGlobalStats() : async {
+    totalUsers : Nat;
+    totalPosts : Nat;
+    totalLikes : Nat;
+    totalComments : Nat;
+    totalActivities : Nat;
+  } {
+    var totalLikes : Nat = 0;
+    for (post in posts.values()) {
+      totalLikes += post.likes.size();
+    };
+    {
+      totalUsers = userProfiles.size();
+      totalPosts = posts.size();
+      totalLikes;
+      totalComments = comments.size();
+      totalActivities = activities.size();
+    };
+  };
+
+  // Followers/following list endpoints
+  public query ({ caller }) func getUserFollowers(user : Principal) : async [Principal] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view followers");
+    };
+    switch (userProfiles.get(user)) {
+      case (null) { [] };
+      case (?profile) { profile.followers };
+    };
+  };
+
+  public query ({ caller }) func getUserFollowing(user : Principal) : async [Principal] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view following");
+    };
+    switch (userProfiles.get(user)) {
+      case (null) { [] };
+      case (?profile) { profile.following };
+    };
   };
 };
-

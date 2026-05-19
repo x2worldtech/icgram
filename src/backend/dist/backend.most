@@ -1,0 +1,130 @@
+// Version: 3.0.0
+type AccessControlState__758248659 =
+  {
+    var adminAssigned : Bool;
+    userRoles : Map__605269027<Principal, UserRole__717262347>
+  };
+type Activity__391177660 =
+  {
+    activityActor : Principal;
+    activityType : {#comment; #like};
+    commentId : ?Text;
+    id : Text;
+    postId : Text;
+    postOwner : Principal;
+    timestamp : Int
+  };
+type Activity__40321653 =
+  {
+    activityActor : Principal;
+    activityType : {#comment; #like};
+    commentId : ?Text;
+    id : Text;
+    postId : Text;
+    postOwner : Principal;
+    timestamp : Int
+  };
+type Comment__473346131 =
+  {
+    author : Principal;
+    id : Text;
+    likes : [Principal];
+    postId : Text;
+    text : Text;
+    timestamp : Int
+  };
+type Comment__975843394 =
+  {
+    author : Principal;
+    id : Text;
+    likes : [Principal];
+    postId : Text;
+    text : Text;
+    timestamp : Int
+  };
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type ExternalBlob__671167343 = Blob;
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type Map__158565046<K, V> = Map__297112838<K, V>;
+type Map__297112838<K, V> =
+  {var root : Node__46230540<K, V>; var size : Nat__490723111};
+type Map__605269027<K, V> = Map__158565046<K, V>;
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type OldPost__784581407 =
+  {
+    author : Principal;
+    caption : Text;
+    id : Text;
+    image : ExternalBlob__671167343;
+    likes : [Principal];
+    timestamp : Int
+  };
+type Post__955439577 =
+  {
+    author : Principal;
+    caption : Text;
+    commentCount : ?Nat;
+    id : Text;
+    image : ExternalBlob__671167343;
+    likes : [Principal];
+    timestamp : Int
+  };
+type UserProfile__315128327 =
+  {
+    bio : Text;
+    displayName : Text;
+    followers : [Principal];
+    following : [Principal];
+    profilePicture : ?ExternalBlob__671167343;
+    username : Text
+  };
+type UserProfile__491224006 =
+  {
+    bio : Text;
+    displayName : Text;
+    followers : [Principal];
+    following : [Principal];
+    profilePicture : ?ExternalBlob__671167343;
+    username : Text
+  };
+type UserRole__1073662873 = {#admin; #guest; #user};
+type UserRole__717262347 = {#admin; #guest; #user};
+actor ({
+  in accessControlState : AccessControlState__758248659;
+  in var activities : Map__605269027<Text, Activity__40321653>;
+  in var comments : Map__605269027<Text, Comment__975843394>;
+  in var posts : Map__605269027<Text, OldPost__784581407>;
+  in var userProfiles : Map__605269027<Principal, UserProfile__315128327>
+}, {
+  stable accessControlState :
+    {
+      var adminAssigned : Bool;
+      userRoles : Map__605269027<Principal, UserRole__1073662873>
+    };
+  stable activities :
+    {
+      var root : Node__46230540<Text, Activity__391177660>;
+      var size : Nat__490723111
+    };
+  stable comments :
+    {
+      var root : Node__46230540<Text, Comment__473346131>;
+      var size : Nat__490723111
+    };
+  stable posts :
+    {
+      var root : Node__46230540<Text, Post__955439577>;
+      var size : Nat__490723111
+    };
+  stable userProfiles :
+    {
+      var root : Node__46230540<Principal, UserProfile__491224006>;
+      var size : Nat__490723111
+    }
+});

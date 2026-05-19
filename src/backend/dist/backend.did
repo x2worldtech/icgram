@@ -1,0 +1,106 @@
+type _ImmutableObjectStorageRefillResult = 
+ record {
+   success: opt bool;
+   topped_up_amount: opt nat;
+ };
+type _ImmutableObjectStorageRefillInformation = record {
+                                                  proposed_top_up_amount:
+                                                   opt nat;};
+type _ImmutableObjectStorageCreateCertificateResult = 
+ record {
+   blob_hash: text;
+   method: text;
+ };
+type UserRole = 
+ variant {
+   admin;
+   guest;
+   user;
+ };
+type UserProfile = 
+ record {
+   bio: text;
+   displayName: text;
+   followers: vec principal;
+   following: vec principal;
+   profilePicture: opt ExternalBlob;
+   username: text;
+ };
+type Post = 
+ record {
+   author: principal;
+   caption: text;
+   commentCount: opt nat;
+   id: text;
+   image: ExternalBlob;
+   likes: vec principal;
+   timestamp: int;
+ };
+type ExternalBlob = blob;
+type Comment = 
+ record {
+   author: principal;
+   id: text;
+   likes: vec principal;
+   postId: text;
+   "text": text;
+   timestamp: int;
+ };
+type Activity = 
+ record {
+   activityActor: principal;
+   activityType: variant {
+                   comment;
+                   like;
+                 };
+   commentId: opt text;
+   id: text;
+   postId: text;
+   postOwner: principal;
+   timestamp: int;
+ };
+service : {
+  _immutableObjectStorageBlobsAreLive: (hashes: vec blob) -> (vec bool) query;
+  _immutableObjectStorageBlobsToDelete: () -> (vec blob) query;
+  _immutableObjectStorageConfirmBlobDeletion: (blobs: vec blob) -> ();
+  _immutableObjectStorageCreateCertificate: (blobHash: text) ->
+   (_ImmutableObjectStorageCreateCertificateResult);
+  _immutableObjectStorageRefillCashier: (refillInformation:
+   opt _ImmutableObjectStorageRefillInformation) ->
+   (_ImmutableObjectStorageRefillResult);
+  _immutableObjectStorageUpdateGatewayPrincipals: () -> ();
+  _initializeAccessControl: () -> ();
+  addComment: (postId: text, commentText: text) -> (text);
+  assignCallerUserRole: (user: principal, role: UserRole) -> ();
+  createPost: (image: ExternalBlob, caption: text) -> (text);
+  deletePost: (postId: text) -> ();
+  followUser: (userToFollow: principal) -> ();
+  getCallerUserProfile: () -> (opt UserProfile) query;
+  getCallerUserRole: () -> (UserRole) query;
+  getComments: (postId: text) -> (vec Comment) query;
+  getFeed: () -> (vec Post) query;
+  getGlobalStats: () ->
+   (record {
+      totalActivities: nat;
+      totalComments: nat;
+      totalLikes: nat;
+      totalPosts: nat;
+      totalUsers: nat;
+    }) query;
+  getInbox: () -> (vec Activity) query;
+  getMultipleUsersPosts: (users: vec principal) -> (vec Post) query;
+  getPostLikes: (postId: text) -> (nat) query;
+  getRecentProfilePictures: (limit: nat) -> (vec ExternalBlob) query;
+  getTotalLikesForUser: (user: principal) -> (nat) query;
+  getUserFollowers: (user: principal) -> (vec principal) query;
+  getUserFollowing: (user: principal) -> (vec principal) query;
+  getUserPosts: (user: principal) -> (vec Post) query;
+  getUserProfile: (user: principal) -> (opt UserProfile) query;
+  isCallerAdmin: () -> (bool) query;
+  likeComment: (commentId: text) -> ();
+  likePost: (postId: text) -> ();
+  saveCallerUserProfile: (profile: UserProfile) -> ();
+  unfollowUser: (userToUnfollow: principal) -> ();
+  unlikeComment: (commentId: text) -> ();
+  unlikePost: (postId: text) -> ();
+}

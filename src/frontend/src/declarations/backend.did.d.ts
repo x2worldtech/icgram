@@ -35,6 +35,7 @@ export interface Post {
   'likes' : Array<Principal>,
   'timestamp' : bigint,
   'caption' : string,
+  'commentCount' : [] | [bigint],
   'image' : ExternalBlob,
 }
 export interface UserProfile {
@@ -48,33 +49,37 @@ export interface UserProfile {
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
-export interface _CaffeineStorageCreateCertificateResult {
+export interface _ImmutableObjectStorageCreateCertificateResult {
   'method' : string,
   'blob_hash' : string,
 }
-export interface _CaffeineStorageRefillInformation {
+export interface _ImmutableObjectStorageRefillInformation {
   'proposed_top_up_amount' : [] | [bigint],
 }
-export interface _CaffeineStorageRefillResult {
+export interface _ImmutableObjectStorageRefillResult {
   'success' : [] | [boolean],
   'topped_up_amount' : [] | [bigint],
 }
 export interface _SERVICE {
-  '_caffeineStorageBlobIsLive' : ActorMethod<[Uint8Array], boolean>,
-  '_caffeineStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
-  '_caffeineStorageConfirmBlobDeletion' : ActorMethod<
+  '_immutableObjectStorageBlobsAreLive' : ActorMethod<
+    [Array<Uint8Array>],
+    Array<boolean>
+  >,
+  '_immutableObjectStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
+  '_immutableObjectStorageConfirmBlobDeletion' : ActorMethod<
     [Array<Uint8Array>],
     undefined
   >,
-  '_caffeineStorageCreateCertificate' : ActorMethod<
+  '_immutableObjectStorageCreateCertificate' : ActorMethod<
     [string],
-    _CaffeineStorageCreateCertificateResult
+    _ImmutableObjectStorageCreateCertificateResult
   >,
-  '_caffeineStorageRefillCashier' : ActorMethod<
-    [[] | [_CaffeineStorageRefillInformation]],
-    _CaffeineStorageRefillResult
+  '_immutableObjectStorageRefillCashier' : ActorMethod<
+    [[] | [_ImmutableObjectStorageRefillInformation]],
+    _ImmutableObjectStorageRefillResult
   >,
-  '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
+  '_immutableObjectStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
+  '_initializeAccessControl' : ActorMethod<[], undefined>,
   'addComment' : ActorMethod<[string, string], string>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createPost' : ActorMethod<[ExternalBlob, string], string>,
@@ -84,14 +89,25 @@ export interface _SERVICE {
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComments' : ActorMethod<[string], Array<Comment>>,
   'getFeed' : ActorMethod<[], Array<Post>>,
+  'getGlobalStats' : ActorMethod<
+    [],
+    {
+      'totalActivities' : bigint,
+      'totalLikes' : bigint,
+      'totalUsers' : bigint,
+      'totalPosts' : bigint,
+      'totalComments' : bigint,
+    }
+  >,
   'getInbox' : ActorMethod<[], Array<Activity>>,
   'getMultipleUsersPosts' : ActorMethod<[Array<Principal>], Array<Post>>,
   'getPostLikes' : ActorMethod<[string], bigint>,
   'getRecentProfilePictures' : ActorMethod<[bigint], Array<ExternalBlob>>,
   'getTotalLikesForUser' : ActorMethod<[Principal], bigint>,
+  'getUserFollowers' : ActorMethod<[Principal], Array<Principal>>,
+  'getUserFollowing' : ActorMethod<[Principal], Array<Principal>>,
   'getUserPosts' : ActorMethod<[Principal], Array<Post>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
-  'initializeAccessControl' : ActorMethod<[], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'likeComment' : ActorMethod<[string], undefined>,
   'likePost' : ActorMethod<[string], undefined>,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseImagePreloaderOptions {
   rootMargin?: string;
@@ -6,143 +6,159 @@ interface UseImagePreloaderOptions {
 }
 
 /**
- * Custom hook for preloading images using IntersectionObserver
- * Preloads images slightly before they enter the viewport
+ * Custom hook for preloading images using IntersectionObserver.
+ * Preloads images slightly before they enter the viewport.
+ *
+ * Internal state is kept in refs so finishing a preload does not
+ * tear down and recreate the observer (which used to happen on every
+ * state update and caused unnecessary work + dropped observations).
+ * Consumers re-render via a small version counter only when an
+ * image actually finishes loading.
  */
 export function useImagePreloader(
-  imageUrls: string[],
-  options: UseImagePreloaderOptions = {}
+  _imageUrls: string[],
+  options: UseImagePreloaderOptions = {},
 ) {
-  const { rootMargin = '400px', threshold = 0 } = options;
-  const [preloadedImages, setPreloadedImages] = useState<Map<string, boolean>>(new Map());
+  const { rootMargin = "400px", threshold = 0 } = options;
+
+  const preloadedRef = useRef<Set<string>>(new Set());
+  const inFlightRef = useRef<Set<string>>(new Set());
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const imageElementsRef = useRef<Map<string, HTMLElement>>(new Map());
-  const preloadCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const elementsRef = useRef<Map<string, HTMLElement>>(new Map());
+  const [, setVersion] = useState(0);
+
+  const bump = useCallback(() => setVersion((v) => v + 1), []);
+
+  const preloadImage = useCallback(
+    (url: string) => {
+      if (preloadedRef.current.has(url) || inFlightRef.current.has(url)) return;
+      inFlightRef.current.add(url);
+      const img = new Image();
+      img.onload = () => {
+        inFlightRef.current.delete(url);
+        preloadedRef.current.add(url);
+        bump();
+      };
+      img.onerror = () => {
+        inFlightRef.current.delete(url);
+        bump();
+      };
+      img.src = url;
+    },
+    [bump],
+  );
 
   useEffect(() => {
-    observerRef.current = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
+        for (const entry of entries) {
           if (entry.isIntersecting) {
-            const imageUrl = entry.target.getAttribute('data-image-url');
-            if (imageUrl && !preloadedImages.get(imageUrl)) {
-              preloadImage(imageUrl);
-            }
+            const url = entry.target.getAttribute("data-image-url");
+            if (url) preloadImage(url);
           }
-        });
+        }
       },
-      {
-        rootMargin,
-        threshold,
-      }
+      { rootMargin, threshold },
     );
+    observerRef.current = observer;
+
+    // Re-observe elements that may have been registered before this run.
+    for (const el of elementsRef.current.values()) {
+      observer.observe(el);
+    }
 
     return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-      // Clean up cached images
-      preloadCacheRef.current.clear();
+      observer.disconnect();
+      observerRef.current = null;
     };
-  }, [rootMargin, threshold]);
+  }, [rootMargin, threshold, preloadImage]);
 
-  const preloadImage = (url: string) => {
-    // Check if already cached
-    if (preloadCacheRef.current.has(url)) {
-      setPreloadedImages((prev) => new Map(prev).set(url, true));
-      return;
+  const registerElement = useCallback(
+    (url: string, element: HTMLElement | null) => {
+      if (!element) return;
+      elementsRef.current.set(url, element);
+      element.setAttribute("data-image-url", url);
+      observerRef.current?.observe(element);
+    },
+    [],
+  );
+
+  const unregisterElement = useCallback((url: string) => {
+    const el = elementsRef.current.get(url);
+    if (el) {
+      observerRef.current?.unobserve(el);
+      elementsRef.current.delete(url);
     }
+  }, []);
 
-    const img = new Image();
-    img.onload = () => {
-      preloadCacheRef.current.set(url, img);
-      setPreloadedImages((prev) => new Map(prev).set(url, true));
-    };
-    img.onerror = () => {
-      setPreloadedImages((prev) => new Map(prev).set(url, false));
-    };
-    img.src = url;
-  };
-
-  const registerElement = (url: string, element: HTMLElement | null) => {
-    if (!element) return;
-
-    imageElementsRef.current.set(url, element);
-    element.setAttribute('data-image-url', url);
-
-    if (observerRef.current) {
-      observerRef.current.observe(element);
-    }
-  };
-
-  const unregisterElement = (url: string) => {
-    const element = imageElementsRef.current.get(url);
-    if (element && observerRef.current) {
-      observerRef.current.unobserve(element);
-      imageElementsRef.current.delete(url);
-    }
-  };
-
-  const isImagePreloaded = (url: string): boolean => {
-    return preloadedImages.get(url) === true;
-  };
+  const isImagePreloaded = useCallback(
+    (url: string): boolean => preloadedRef.current.has(url),
+    [],
+  );
 
   return {
     registerElement,
     unregisterElement,
     isImagePreloaded,
-    preloadedImages,
+    preloadedImages: preloadedRef.current,
   };
 }
 
 /**
- * Hook for priority preloading of initial images
- * Immediately preloads the first N images for instant visibility
+ * Hook for priority preloading of initial images.
+ * Immediately preloads the first N images for instant visibility.
+ *
+ * Loaded URLs are tracked in a ref; the effect only depends on the
+ * input URL list and the count, so it does not re-run on every
+ * completed load (which previously caused redundant iterations).
  */
-export function usePriorityImagePreload(imageUrls: string[], count: number = 3) {
-  const [loadedUrls, setLoadedUrls] = useState<Set<string>>(new Set());
-  const cacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+export function usePriorityImagePreload(imageUrls: string[], count = 3) {
+  const loadedRef = useRef<Set<string>>(new Set());
+  const inFlightRef = useRef<Set<string>>(new Set());
+  const [, setVersion] = useState(0);
 
   useEffect(() => {
     const priorityUrls = imageUrls.slice(0, count);
-    
-    priorityUrls.forEach((url) => {
-      if (!loadedUrls.has(url) && !cacheRef.current.has(url)) {
-        const img = new Image();
-        img.onload = () => {
-          cacheRef.current.set(url, img);
-          setLoadedUrls((prev) => new Set(prev).add(url));
-        };
-        img.onerror = () => {
-          setLoadedUrls((prev) => new Set(prev).add(url));
-        };
-        // Set high priority for critical images
-        img.fetchPriority = 'high';
-        img.src = url;
-      }
-    });
-
-    return () => {
-      // Keep cache for reuse
-    };
+    for (const url of priorityUrls) {
+      if (loadedRef.current.has(url) || inFlightRef.current.has(url)) continue;
+      inFlightRef.current.add(url);
+      const img = new Image();
+      img.fetchPriority = "high";
+      img.onload = () => {
+        inFlightRef.current.delete(url);
+        loadedRef.current.add(url);
+        setVersion((v) => v + 1);
+      };
+      img.onerror = () => {
+        inFlightRef.current.delete(url);
+        loadedRef.current.add(url);
+        setVersion((v) => v + 1);
+      };
+      img.src = url;
+    }
   }, [imageUrls, count]);
 
+  const isPriorityLoaded = useCallback(
+    (url: string) => loadedRef.current.has(url),
+    [],
+  );
+
   return {
-    isPriorityLoaded: (url: string) => loadedUrls.has(url),
-    loadedUrls,
+    isPriorityLoaded,
+    loadedUrls: loadedRef.current,
   };
 }
 
 /**
- * Hook for background preloading of thumbnail images
- * Preloads images in the background without blocking UI
+ * Hook for background preloading of thumbnail images.
+ * Preloads images in the background without blocking UI.
  */
-export function useBackgroundImagePreload(imageUrls: string[], delay: number = 2000) {
+export function useBackgroundImagePreload(imageUrls: string[], delay = 2000) {
   const cacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      imageUrls.forEach((url) => {
+      for (const url of imageUrls) {
         if (!cacheRef.current.has(url)) {
           const img = new Image();
           img.onload = () => {
@@ -150,7 +166,7 @@ export function useBackgroundImagePreload(imageUrls: string[], delay: number = 2
           };
           img.src = url;
         }
-      });
+      }
     }, delay);
 
     return () => clearTimeout(timer);

@@ -1,154 +1,258 @@
-import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { useCreatePost } from '../hooks/useQueries';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Camera, Loader2, X, Check } from 'lucide-react';
-import { ExternalBlob } from '../backend';
-import { optimizePostImage } from '../utils/imageOptimization';
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useNavigate } from "@tanstack/react-router";
+import { Check, Loader2, Upload, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { ExternalBlob } from "../backend";
+import { useCreatePost } from "../hooks/useQueries";
+import { optimizePostImage, validateImage } from "../utils/imageOptimization";
 
 export default function CreatePostPage() {
   const navigate = useNavigate();
-  const { identity } = useInternetIdentity();
-  const createPost = useCreatePost();
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [caption, setCaption] = useState('');
-  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [imageError, setImageError] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const createPost = useCreatePost();
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedImage(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+    if (!file) return;
+
+    // Validate image type
+    if (!validateImage(file)) {
+      setImageError(true);
+      setTimeout(() => setImageError(false), 3000);
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setImageError(true);
+      setTimeout(() => setImageError(false), 3000);
+      return;
+    }
+
+    setIsOptimizing(true);
+
+    try {
+      // Optimize image on client side
+      const optimized = await optimizePostImage(file);
+
+      // Log optimization results for debugging
+      console.log(
+        `Image optimized: ${(optimized.originalSize / 1024 / 1024).toFixed(2)}MB → ${(optimized.optimizedSize / 1024 / 1024).toFixed(2)}MB (${optimized.compressionRatio.toFixed(1)}% reduction)`,
+      );
+
+      setSelectedImage(optimized.file);
+
+      // Create preview from optimized file
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(optimized.file);
+    } catch (error) {
+      console.error("Error optimizing image:", error);
+      setImageError(true);
+      setTimeout(() => setImageError(false), 3000);
+    } finally {
+      setIsOptimizing(false);
     }
   };
 
   const handleRemoveImage = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
     setSelectedImage(null);
-    setPreviewUrl(null);
+    setImagePreview(null);
+    setUploadProgress(0);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedImage || !identity) {
+    if (!selectedImage) {
       return;
     }
 
     try {
-      setIsOptimizing(true);
-      const optimizedResult = await optimizePostImage(selectedImage);
+      const arrayBuffer = await selectedImage.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const blob = ExternalBlob.fromBytes(uint8Array).withUploadProgress(
+        (percentage) => {
+          setUploadProgress(percentage);
+        },
+      );
 
-      // Convert File to Uint8Array for ExternalBlob
-      const arrayBuffer = await optimizedResult.file.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-
-      setIsOptimizing(false);
-
-      const blob = ExternalBlob.fromBytes(bytes);
-      const currentUserPrincipal = identity.getPrincipal();
-
-      await createPost.mutateAsync({
-        image: blob,
-        caption: caption.trim(),
-        authorPrincipal: currentUserPrincipal,
-      });
+      await createPost.mutateAsync({ image: blob, caption });
 
       setShowSuccess(true);
+
+      // Navigate after showing success
       setTimeout(() => {
-        navigate({ to: '/' });
-      }, 500);
+        setSelectedImage(null);
+        setImagePreview(null);
+        setCaption("");
+        setUploadProgress(0);
+        setShowSuccess(false);
+        navigate({ to: "/" });
+      }, 1500);
     } catch (error) {
-      console.error('Error creating post:', error);
-      setIsOptimizing(false);
+      console.error("Error creating post:", error);
     }
   };
 
-  const isSubmitting = createPost.isPending || isOptimizing;
+  const isUploading = createPost.isPending;
+  const captionLength = caption.length;
+  const maxCaptionLength = 500;
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto p-4">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-light">Create Post</h1>
-          <Button
-            onClick={() => navigate({ to: '/' })}
-            variant="ghost"
-            size="icon"
-            className="rounded-full"
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
+      <div className="p-4">
+        <div className="space-y-6 py-4">
+          <div>
+            <h2 className="text-2xl font-light">Create Post</h2>
+            <p className="text-sm text-muted-foreground">
+              Share a photo with your followers
+            </p>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {!previewUrl ? (
-            <label className="flex flex-col items-center justify-center w-full aspect-square border-2 border-dashed border-border rounded-3xl cursor-pointer hover:border-primary transition-colors bg-muted/20">
-              <Camera className="h-16 w-16 text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground">Tap to select an image</p>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="image">Photo</Label>
+              {!imagePreview ? (
+                <button
+                  type="button"
+                  onClick={() => !isOptimizing && fileInputRef.current?.click()}
+                  className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed p-12 transition-all ${
+                    imageError
+                      ? "border-red-500 bg-red-50/50"
+                      : isOptimizing
+                        ? "border-primary bg-primary/5"
+                        : "border-border bg-muted/20 hover:bg-muted/40"
+                  }`}
+                >
+                  {isOptimizing ? (
+                    <>
+                      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                      <p className="text-sm text-primary">
+                        Optimizing image...
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload
+                        className={`h-12 w-12 ${imageError ? "text-red-500" : "text-muted-foreground"}`}
+                      />
+                      <p
+                        className={`text-sm ${imageError ? "text-red-500" : "text-muted-foreground"}`}
+                      >
+                        {imageError
+                          ? "Invalid image or size > 10MB"
+                          : "Click to upload an image"}
+                      </p>
+                      {!imageError && (
+                        <p className="text-xs text-muted-foreground">
+                          Max size: 10MB • Auto-optimized for faster upload
+                        </p>
+                      )}
+                    </>
+                  )}
+                </button>
+              ) : (
+                <div className="relative">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full rounded-3xl object-contain"
+                    style={{ maxHeight: "60vh" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute right-2 top-2 rounded-full bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-background"
+                    aria-label="Remove image"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
               <input
+                ref={fileInputRef}
+                id="image"
                 type="file"
                 accept="image/*"
                 onChange={handleImageSelect}
                 className="hidden"
-                disabled={isSubmitting}
+                disabled={isOptimizing}
               />
-            </label>
-          ) : (
-            <div className="relative w-full aspect-square rounded-3xl overflow-hidden bg-muted">
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-              <button
-                type="button"
-                onClick={handleRemoveImage}
-                disabled={isSubmitting}
-                className="absolute top-4 right-4 p-2 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background transition-colors disabled:opacity-50"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
-          )}
 
-          <Textarea
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="Write a caption..."
-            className="min-h-[100px] resize-none rounded-3xl"
-            disabled={isSubmitting}
-          />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="caption">Caption</Label>
+                <span className="text-xs text-muted-foreground">
+                  {captionLength}/{maxCaptionLength}
+                </span>
+              </div>
+              <Textarea
+                id="caption"
+                value={caption}
+                onChange={(e) =>
+                  setCaption(e.target.value.slice(0, maxCaptionLength))
+                }
+                placeholder="Write a caption..."
+                className="min-h-24 resize-none rounded-2xl"
+                disabled={isUploading}
+              />
+            </div>
 
-          <Button
-            type="submit"
-            disabled={!selectedImage || isSubmitting}
-            className={`w-full rounded-full transition-all ${
-              showSuccess ? 'bg-green-500 hover:bg-green-600' : ''
-            }`}
-          >
-            {showSuccess ? (
-              <>
-                <Check className="mr-2 h-4 w-4" />
-                Posted!
-              </>
-            ) : isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isOptimizing ? 'Optimizing...' : 'Posting...'}
-              </>
-            ) : (
-              'Share Post'
+            {isUploading && uploadProgress > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Uploading...</span>
+                  <span className="font-medium">{uploadProgress}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
             )}
-          </Button>
-        </form>
+
+            <Button
+              type="submit"
+              disabled={!selectedImage || isUploading || isOptimizing}
+              className={`w-full rounded-full transition-all ${
+                showSuccess ? "bg-green-500 hover:bg-green-600" : ""
+              }`}
+              size="lg"
+            >
+              {showSuccess ? (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Post Created!
+                </>
+              ) : isUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating Post...
+                </>
+              ) : (
+                "Create Post"
+              )}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );

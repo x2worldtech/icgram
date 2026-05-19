@@ -1,14 +1,20 @@
-import { useState, lazy, Suspense } from 'react';
-import { useGetCallerUserProfile, useGetUserPosts, useGetTotalLikesForUser, useDeletePost } from '../hooks/useQueries';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { LogOut, Loader2, Edit, Grid3x3, Trash2 } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import type { Post } from '../backend';
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useInternetIdentity } from "@caffeineai/core-infrastructure";
+import { useQueryClient } from "@tanstack/react-query";
+import { Edit, Grid3x3, Loader2, LogOut, Trash2 } from "lucide-react";
+import { Suspense, lazy, useState } from "react";
+import {
+  useDeletePost,
+  useGetCallerUserProfile,
+  useGetTotalLikesForUser,
+  useGetUserPosts,
+} from "../hooks/useQueries";
+import type { Post } from "../types";
 
-const EditProfileModal = lazy(() => import('../components/EditProfileModal'));
-const PostDetailModal = lazy(() => import('../components/PostDetailModal'));
+// Lazy load heavy modals
+const EditProfileModal = lazy(() => import("../components/EditProfileModal"));
+const PostDetailModal = lazy(() => import("../components/PostDetailModal"));
 
 function ProfileSkeleton() {
   return (
@@ -42,13 +48,18 @@ export default function ProfilePage() {
   const { identity, clear } = useInternetIdentity();
   const queryClient = useQueryClient();
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [imageLoadStates, setImageLoadStates] = useState<Record<string, boolean>>({});
+  const [imageLoadStates, setImageLoadStates] = useState<
+    Record<string, boolean>
+  >({});
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const currentUserPrincipal = identity?.getPrincipal();
-  const { data: userPosts, isLoading: postsLoading } = useGetUserPosts(currentUserPrincipal || null);
-  const { data: totalLikes, isLoading: totalLikesLoading } = useGetTotalLikesForUser(currentUserPrincipal || null);
+  const { data: userPosts, isLoading: postsLoading } = useGetUserPosts(
+    currentUserPrincipal || null,
+  );
+  const { data: totalLikes, isLoading: totalLikesLoading } =
+    useGetTotalLikesForUser(currentUserPrincipal || null);
   const deletePost = useDeletePost();
 
   const handleLogout = async () => {
@@ -70,7 +81,7 @@ export default function ProfilePage() {
 
   const handleDeleteClick = (e: React.MouseEvent, postId: string) => {
     e.stopPropagation();
-    
+
     if (deleteConfirmId === postId) {
       handleDeletePost(postId);
     } else {
@@ -80,13 +91,11 @@ export default function ProfilePage() {
   };
 
   const handleDeletePost = async (postId: string) => {
-    if (!currentUserPrincipal) return;
-
     try {
-      await deletePost.mutateAsync({ postId, authorPrincipal: currentUserPrincipal });
+      await deletePost.mutateAsync(postId);
       setDeleteConfirmId(null);
-    } catch (error: any) {
-      // Silent error
+    } catch (_error: any) {
+      // Silent error handling
     }
   };
 
@@ -100,9 +109,11 @@ export default function ProfilePage() {
 
   const profileImageUrl = userProfile.profilePicture
     ? userProfile.profilePicture.getDirectURL()
-    : '/assets/generated/default-avatar.dim_200x200.png';
+    : "/assets/generated/default-avatar.dim_200x200.png";
 
-  const sortedPosts = userPosts ? [...userPosts].sort((a, b) => Number(b.timestamp - a.timestamp)) : [];
+  const sortedPosts = userPosts
+    ? [...userPosts].sort((a, b) => Number(b.timestamp - a.timestamp))
+    : [];
 
   return (
     <>
@@ -116,8 +127,12 @@ export default function ProfilePage() {
                 className="h-24 w-24 rounded-full object-cover ring-2 ring-border"
               />
               <div className="text-center">
-                <h2 className="text-xl font-light">{userProfile.displayName}</h2>
-                <p className="text-sm text-muted-foreground">@{userProfile.username}</p>
+                <h2 className="text-xl font-light">
+                  {userProfile.displayName}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  @{userProfile.username}
+                </p>
               </div>
 
               {userProfile.bio && (
@@ -128,11 +143,15 @@ export default function ProfilePage() {
 
               <div className="flex gap-8 text-center">
                 <div>
-                  <p className="text-lg font-light">{userProfile.followers.length}</p>
+                  <p className="text-lg font-light">
+                    {userProfile.followers.length}
+                  </p>
                   <p className="text-xs text-muted-foreground">Followers</p>
                 </div>
                 <div>
-                  <p className="text-lg font-light">{userProfile.following.length}</p>
+                  <p className="text-lg font-light">
+                    {userProfile.following.length}
+                  </p>
                   <p className="text-xs text-muted-foreground">Following</p>
                 </div>
                 <div>
@@ -180,6 +199,7 @@ export default function ProfilePage() {
 
                     return (
                       <button
+                        type="button"
                         key={post.id}
                         onClick={() => handlePostClick(post)}
                         className="relative aspect-square bg-muted overflow-hidden active:opacity-80 transition-opacity group"
@@ -191,23 +211,26 @@ export default function ProfilePage() {
                         )}
                         <img
                           src={imageUrl}
-                          alt={post.caption || 'Post'}
+                          alt={post.caption || "Post"}
                           className={`h-full w-full object-cover transition-opacity duration-300 ${
-                            isLoaded ? 'opacity-100' : 'opacity-0'
+                            isLoaded ? "opacity-100" : "opacity-0"
                           }`}
                           onLoad={() => handleImageLoad(post.id)}
                           loading="lazy"
                         />
-                        <div
+                        <button
+                          type="button"
                           onClick={(e) => handleDeleteClick(e, post.id)}
                           className={`absolute top-2 right-2 backdrop-blur-sm rounded-full p-1.5 transition-all ${
                             isConfirming
-                              ? 'bg-destructive opacity-100'
-                              : 'bg-background/80 opacity-0 group-hover:opacity-100'
+                              ? "bg-destructive opacity-100"
+                              : "bg-background/80 opacity-0 group-hover:opacity-100"
                           }`}
                         >
-                          <Trash2 className={`h-4 w-4 ${isConfirming ? 'text-white' : 'text-destructive'}`} />
-                        </div>
+                          <Trash2
+                            className={`h-4 w-4 ${isConfirming ? "text-white" : "text-destructive"}`}
+                          />
+                        </button>
                       </button>
                     );
                   })}
@@ -216,7 +239,9 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-4 rounded-3xl bg-muted/20 p-6">
-              <h3 className="text-sm font-medium text-muted-foreground">Settings</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Settings
+              </h3>
               <Button
                 onClick={handleLogout}
                 variant="outline"
@@ -242,7 +267,10 @@ export default function ProfilePage() {
 
       {selectedPost && (
         <Suspense fallback={null}>
-          <PostDetailModal post={selectedPost} onClose={handleClosePostDetail} />
+          <PostDetailModal
+            post={selectedPost}
+            onClose={handleClosePostDetail}
+          />
         </Suspense>
       )}
     </>

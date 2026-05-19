@@ -5,7 +5,7 @@ build:
     steps:
         - type: script
           commands:
-              - pnpm install --frozen-lockfile --prefer-offline --child-concurrency 2 --network-concurrency 6
+              - pnpm install --prefer-offline --child-concurrency 2 --network-concurrency 6
               - node ../../scripts/resize-images.js
               - |
                   cat > env.json <<EOF

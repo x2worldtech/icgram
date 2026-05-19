@@ -37,6 +37,7 @@ export interface Post {
     likes: Array<Principal>;
     timestamp: bigint;
     caption: string;
+    commentCount?: bigint;
     image: ExternalBlob;
 }
 export interface UserProfile {
@@ -57,7 +58,7 @@ export enum Variant_like_comment {
     comment = "comment"
 }
 export interface backendInterface {
-    addComment(postId: string, text: string): Promise<string>;
+    addComment(postId: string, commentText: string): Promise<string>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createPost(image: ExternalBlob, caption: string): Promise<string>;
     deletePost(postId: string): Promise<void>;
@@ -66,14 +67,22 @@ export interface backendInterface {
     getCallerUserRole(): Promise<UserRole>;
     getComments(postId: string): Promise<Array<Comment>>;
     getFeed(): Promise<Array<Post>>;
+    getGlobalStats(): Promise<{
+        totalActivities: bigint;
+        totalLikes: bigint;
+        totalUsers: bigint;
+        totalPosts: bigint;
+        totalComments: bigint;
+    }>;
     getInbox(): Promise<Array<Activity>>;
     getMultipleUsersPosts(users: Array<Principal>): Promise<Array<Post>>;
     getPostLikes(postId: string): Promise<bigint>;
     getRecentProfilePictures(limit: bigint): Promise<Array<ExternalBlob>>;
     getTotalLikesForUser(user: Principal): Promise<bigint>;
+    getUserFollowers(user: Principal): Promise<Array<Principal>>;
+    getUserFollowing(user: Principal): Promise<Array<Principal>>;
     getUserPosts(user: Principal): Promise<Array<Post>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
-    initializeAccessControl(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
     likeComment(commentId: string): Promise<void>;
     likePost(postId: string): Promise<void>;

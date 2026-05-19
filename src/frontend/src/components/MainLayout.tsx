@@ -1,16 +1,16 @@
-import { Home, PlusSquare, User, Bell } from 'lucide-react';
-import { Outlet, useNavigate, useLocation } from '@tanstack/react-router';
+import { Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { Bell, Home, PlusSquare, User } from "lucide-react";
 
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const getActiveTab = () => {
-    if (location.pathname === '/') return 'feed';
-    if (location.pathname === '/create') return 'create';
-    if (location.pathname === '/inbox') return 'inbox';
-    if (location.pathname === '/profile') return 'profile';
-    return 'feed';
+    if (location.pathname === "/") return "feed";
+    if (location.pathname === "/create") return "create";
+    if (location.pathname === "/inbox") return "inbox";
+    if (location.pathname === "/profile") return "profile";
+    return "feed";
   };
 
   const activeTab = getActiveTab();
@@ -18,12 +18,7 @@ export default function MainLayout() {
   return (
     <div className="fixed inset-0 flex flex-col bg-background">
       <header className="flex-shrink-0 border-b border-border bg-background/95 backdrop-blur-xl z-10">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-center px-4 gap-2">
-          <img 
-            src="/assets/generated/icgram-logo-new-transparent.dim_200x200.png" 
-            alt="ICgram" 
-            className="h-8 w-8"
-          />
+        <div className="mx-auto flex h-14 max-w-2xl items-center justify-center px-4">
           <h1 className="text-xl font-light tracking-tight">ICgram</h1>
         </div>
       </header>
@@ -37,9 +32,10 @@ export default function MainLayout() {
       <nav className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur-xl z-10">
         <div className="mx-auto flex h-16 max-w-2xl items-center justify-around px-4">
           <button
-            onClick={() => navigate({ to: '/' })}
+            type="button"
+            onClick={() => navigate({ to: "/" })}
             className={`flex flex-col items-center gap-1 transition-colors ${
-              activeTab === 'feed' ? 'text-foreground' : 'text-muted-foreground'
+              activeTab === "feed" ? "text-foreground" : "text-muted-foreground"
             }`}
             aria-label="Home"
           >
@@ -48,9 +44,12 @@ export default function MainLayout() {
           </button>
 
           <button
-            onClick={() => navigate({ to: '/create' })}
+            type="button"
+            onClick={() => navigate({ to: "/create" })}
             className={`flex flex-col items-center gap-1 transition-colors ${
-              activeTab === 'create' ? 'text-foreground' : 'text-muted-foreground'
+              activeTab === "create"
+                ? "text-foreground"
+                : "text-muted-foreground"
             }`}
             aria-label="Create"
           >
@@ -59,9 +58,12 @@ export default function MainLayout() {
           </button>
 
           <button
-            onClick={() => navigate({ to: '/inbox' })}
+            type="button"
+            onClick={() => navigate({ to: "/inbox" })}
             className={`flex flex-col items-center gap-1 transition-colors ${
-              activeTab === 'inbox' ? 'text-foreground' : 'text-muted-foreground'
+              activeTab === "inbox"
+                ? "text-foreground"
+                : "text-muted-foreground"
             }`}
             aria-label="Inbox"
           >
@@ -70,9 +72,12 @@ export default function MainLayout() {
           </button>
 
           <button
-            onClick={() => navigate({ to: '/profile' })}
+            type="button"
+            onClick={() => navigate({ to: "/profile" })}
             className={`flex flex-col items-center gap-1 transition-colors ${
-              activeTab === 'profile' ? 'text-foreground' : 'text-muted-foreground'
+              activeTab === "profile"
+                ? "text-foreground"
+                : "text-muted-foreground"
             }`}
             aria-label="Profile"
           >

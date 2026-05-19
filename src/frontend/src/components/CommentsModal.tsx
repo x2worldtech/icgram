@@ -1,10 +1,16 @@
-import { useState } from 'react';
-import { useGetComments, useAddComment, useGetUserProfile, useLikeComment, useUnlikeComment } from '../hooks/useQueries';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { X, Loader2, Send, Heart, Check } from 'lucide-react';
-import type { Post, Comment } from '../backend';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useInternetIdentity } from "@caffeineai/core-infrastructure";
+import { Check, Heart, Loader2, Send, X } from "lucide-react";
+import { useState } from "react";
+import {
+  useAddComment,
+  useGetComments,
+  useGetUserProfile,
+  useLikeComment,
+  useUnlikeComment,
+} from "../hooks/useQueries";
+import type { Comment, Post } from "../types";
 
 interface CommentsModalProps {
   post: Post;
@@ -12,25 +18,26 @@ interface CommentsModalProps {
 }
 
 export default function CommentsModal({ post, onClose }: CommentsModalProps) {
-  const [commentText, setCommentText] = useState('');
+  const [commentText, setCommentText] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
-  const { identity } = useInternetIdentity();
   const { data: comments, isLoading } = useGetComments(post.id);
   const addComment = useAddComment();
-
-  const currentUserPrincipal = identity?.getPrincipal();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!commentText.trim() || !currentUserPrincipal) {
+    if (!commentText.trim()) {
       return;
     }
 
     try {
-      await addComment.mutateAsync({ postId: post.id, text: commentText.trim(), userPrincipal: currentUserPrincipal });
-      setCommentText('');
-      
+      await addComment.mutateAsync({
+        postId: post.id,
+        text: commentText.trim(),
+      });
+      setCommentText("");
+
+      // Show inline success feedback
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (error) {
@@ -38,7 +45,9 @@ export default function CommentsModal({ post, onClose }: CommentsModalProps) {
     }
   };
 
-  const sortedComments = comments ? [...comments].sort((a, b) => Number(b.timestamp - a.timestamp)) : [];
+  const sortedComments = comments
+    ? [...comments].sort((a, b) => Number(b.timestamp - a.timestamp))
+    : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm sm:items-center">
@@ -46,6 +55,7 @@ export default function CommentsModal({ post, onClose }: CommentsModalProps) {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="text-lg font-light">Comments</h3>
           <button
+            type="button"
             onClick={onClose}
             className="rounded-full p-2 transition-colors hover:bg-muted"
           >
@@ -65,7 +75,11 @@ export default function CommentsModal({ post, onClose }: CommentsModalProps) {
           ) : (
             <div className="space-y-4">
               {sortedComments.map((comment) => (
-                <CommentItem key={comment.id} comment={comment} postId={post.id} />
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  postId={post.id}
+                />
               ))}
             </div>
           )}
@@ -85,7 +99,7 @@ export default function CommentsModal({ post, onClose }: CommentsModalProps) {
               size="icon"
               disabled={!commentText.trim() || addComment.isPending}
               className={`rounded-full transition-all ${
-                showSuccess ? 'bg-green-500 hover:bg-green-600' : ''
+                showSuccess ? "bg-green-500 hover:bg-green-600" : ""
               }`}
             >
               {showSuccess ? (
@@ -103,18 +117,23 @@ export default function CommentsModal({ post, onClose }: CommentsModalProps) {
   );
 }
 
-function CommentItem({ comment, postId }: { comment: Comment; postId: string }) {
+function CommentItem({
+  comment,
+  postId,
+}: { comment: Comment; postId: string }) {
   const { identity } = useInternetIdentity();
   const { data: authorProfile } = useGetUserProfile(comment.author);
   const likeComment = useLikeComment();
   const unlikeComment = useUnlikeComment();
 
-  const currentUserPrincipal = identity?.getPrincipal();
-  const isLiked = currentUserPrincipal ? comment.likes.some((p) => p.toString() === currentUserPrincipal.toString()) : false;
+  const currentUserPrincipal = identity?.getPrincipal().toString();
+  const isLiked = comment.likes.some(
+    (p) => p.toString() === currentUserPrincipal,
+  );
 
   const authorImageUrl = authorProfile?.profilePicture
     ? authorProfile.profilePicture.getDirectURL()
-    : '/assets/generated/default-avatar.dim_200x200.png';
+    : "/assets/generated/default-avatar.dim_200x200.png";
 
   const formatTimestamp = (timestamp: bigint) => {
     const date = new Date(Number(timestamp) / 1000000);
@@ -123,23 +142,21 @@ function CommentItem({ comment, postId }: { comment: Comment; postId: string }) 
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
-    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
   };
 
   const handleToggleLike = async () => {
-    if (!currentUserPrincipal) return;
-
     try {
       if (isLiked) {
-        await unlikeComment.mutateAsync({ commentId: comment.id, postId, userPrincipal: currentUserPrincipal });
+        await unlikeComment.mutateAsync({ commentId: comment.id, postId });
       } else {
-        await likeComment.mutateAsync({ commentId: comment.id, postId, userPrincipal: currentUserPrincipal });
+        await likeComment.mutateAsync({ commentId: comment.id, postId });
       }
-    } catch (error: any) {
-      // Silent error
+    } catch (_error: any) {
+      // Silent error handling - state will revert automatically
     }
   };
 
@@ -147,32 +164,39 @@ function CommentItem({ comment, postId }: { comment: Comment; postId: string }) 
     <div className="flex gap-3">
       <img
         src={authorImageUrl}
-        alt={authorProfile?.displayName || 'User'}
+        alt={authorProfile?.displayName || "User"}
         className="h-8 w-8 rounded-full object-cover flex-shrink-0"
       />
       <div className="flex-1 min-w-0 flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm">
-            <span className="font-semibold">{authorProfile?.username || 'user'}</span>{' '}
-            {comment.text}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {formatTimestamp(comment.timestamp)}
-          </p>
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-baseline gap-2">
+            <p className="text-sm font-medium">
+              {authorProfile?.username || "user"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatTimestamp(comment.timestamp)}
+            </p>
+          </div>
+          <p className="text-sm">{comment.text}</p>
         </div>
         <button
+          type="button"
           onClick={handleToggleLike}
           disabled={likeComment.isPending || unlikeComment.isPending}
           className="flex-shrink-0 flex items-center gap-1 transition-all active:scale-90 disabled:opacity-50"
-          aria-label={isLiked ? 'Unlike comment' : 'Like comment'}
+          aria-label={isLiked ? "Unlike comment" : "Like comment"}
         >
           <Heart
-            className={`h-3.5 w-3.5 transition-all duration-200 ${
-              isLiked ? 'fill-red-500 text-red-500 scale-110' : 'text-muted-foreground'
+            className={`h-4 w-4 transition-all duration-200 ${
+              isLiked
+                ? "fill-red-500 text-red-500 scale-110"
+                : "text-muted-foreground"
             }`}
           />
           {comment.likes.length > 0 && (
-            <span className="text-xs text-muted-foreground">{comment.likes.length}</span>
+            <span className="text-xs text-muted-foreground">
+              {comment.likes.length}
+            </span>
           )}
         </button>
       </div>
