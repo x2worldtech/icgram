@@ -1,0 +1,1 @@
+import{j as i}from"./query-D7Sf0-4E.js";import{P as e}from"./index-B-LJOtZ-.js";import"./dfinity-RZROpfX5.js";import"./router-Cxv3NtD6.js";import"./icons-C1oomXZS.js";function a({open:o,onOpenChange:r,currentProfile:t}){return o?i.jsx(e,{currentProfile:t,onClose:()=>r(!1)}):null}export{a as default};

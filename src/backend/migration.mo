@@ -19,20 +19,11 @@ module {
     following : [Principal];
   };
 
-  // Post shape BEFORE the commentCount field was introduced —
-  // matches what's currently persisted in the deployed canister.
-  type OldPost = {
-    id : Text;
-    author : Principal;
-    image : Storage.ExternalBlob;
-    caption : Text;
-    timestamp : Int;
-    likes : [Principal];
-  };
-
-  // Post shape AFTER the commentCount field was introduced —
-  // matches the new Post type in main.mo.
-  type NewPost = {
+  // The persisted state already stores Post WITH commentCount
+  // (a previous migration brought it to this shape). OldPost and NewPost
+  // are therefore identical — this migration is a structural pass-through
+  // that only exists to satisfy the explicit-migration declaration in main.mo.
+  type Post = {
     id : Text;
     author : Principal;
     image : Storage.ExternalBlob;
@@ -68,57 +59,15 @@ module {
 
   type OldActor = {
     var userProfiles : Map.Map<Principal, UserProfile>;
-    var posts : Map.Map<Text, OldPost>;
+    var posts : Map.Map<Text, Post>;
     var comments : Map.Map<Text, Comment>;
     var activities : Map.Map<Text, Activity>;
     accessControlState : AccessControlState;
   };
 
-  type NewActor = {
-    var userProfiles : Map.Map<Principal, UserProfile>;
-    var posts : Map.Map<Text, NewPost>;
-    var comments : Map.Map<Text, Comment>;
-    var activities : Map.Map<Text, Activity>;
-    accessControlState : AccessControlState;
-  };
+  type NewActor = OldActor;
 
   public func run(old : OldActor) : NewActor {
-    // Count comments per postId so existing posts get their real count
-    // when commentCount is stamped on them.
-    let commentCounts = Map.empty<Text, Nat>();
-    for (c in old.comments.values()) {
-      let current = switch (commentCounts.get(c.postId)) {
-        case (null) { 0 };
-        case (?n) { n };
-      };
-      commentCounts.add(c.postId, current + 1);
-    };
-
-    // Copy each old post into a new post, adding commentCount.
-    // null means "no comments yet" — frontend treats null as 0,
-    // addComment will default null → 0 → 1 on the next comment.
-    let posts = Map.empty<Text, NewPost>();
-    for ((id, p) in old.posts.entries()) {
-      posts.add(
-        id,
-        {
-          id = p.id;
-          author = p.author;
-          image = p.image;
-          caption = p.caption;
-          timestamp = p.timestamp;
-          likes = p.likes;
-          commentCount = commentCounts.get(id);
-        },
-      );
-    };
-
-    {
-      var userProfiles = old.userProfiles;
-      var posts;
-      var comments = old.comments;
-      var activities = old.activities;
-      accessControlState = old.accessControlState;
-    };
+    old;
   };
 };
